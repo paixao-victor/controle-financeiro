@@ -4,7 +4,7 @@ import BottomSheetSelect from './BottomSheetSelect';
 import BottomSheetIconSelector from './BottomSheetIconSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import type { PredictedExpense } from '@/contexts/TransactionsContext';
+import type { PredictedExpense } from '@/types';
 
 const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { availableCategories, predictedExpenses: expenses, addPredictedExpense, updatePredictedExpense, deletePredictedExpense } = useTransactions();

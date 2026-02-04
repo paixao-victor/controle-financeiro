@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
 
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, differenceInDays, isPast, isToday, parseISO, isSameMonth, addMonths } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, differenceInDays, isPast, isToday, isSameMonth, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
 import { useDragScroll } from '@/hooks/useDragScroll';
@@ -22,7 +22,6 @@ const BANKS = [
 const Dashboard = () => {
     const { 
         transactions, 
-        currentCurrency,
         predictedExpenses,
         cards,
         updateCard
@@ -98,7 +97,7 @@ const Dashboard = () => {
         
         // Update local selected state to reflect immediate change if needed
         if (selectedCardDetail && selectedCardDetail.cardId === card.id) {
-             setSelectedCardDetail(prev => ({ 
+             setSelectedCardDetail((prev: any) => ({ 
                  ...prev, 
                  circleStatus: newStatus === 'closed' ? 'paid' : 'pending',
                  isPaid: newStatus === 'closed'
@@ -116,7 +115,7 @@ const Dashboard = () => {
 
     const onPieClick = useCallback((e: any, index: number) => {
         if (e && e.stopPropagation) e.stopPropagation();
-        setClickedIndex(prev => prev === index ? -1 : index);
+        setClickedIndex((prev: number) => prev === index ? -1 : index);
     }, []);
 
     const renderActiveShape = (props: any) => {

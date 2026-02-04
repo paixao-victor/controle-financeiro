@@ -5,7 +5,7 @@ import { useTransactions } from '@/contexts/TransactionsContext';
 import { format, isToday, isYesterday, isSameMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ExportModal } from './ExportModal';
-import { formatCurrency, capitalize, removeAccents } from '@/utils/formatters';
+import { capitalize, removeAccents } from '@/utils/formatters';
 import TransactionDetailModal from './TransactionDetailModal';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import { SavingsEvolutionChart } from './SavingsEvolutionChart';
@@ -543,7 +543,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
 
                             {/* Sentinel for Infinite Scroll - Only show if mode supports scrolling */}
                             <div ref={observerTarget} className="py-6 flex justify-center w-full">
-                                {filterPeriod !== 'last5' && filterPeriod !== 'today' && visibleCount < filteredTransactions.length && (
+                                {filterPeriod !== 'last5' && filterPeriod !== 'today' && visibleCount < sortedFilteredTransactions.length && (
                                     <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                                 )}
                             </div>

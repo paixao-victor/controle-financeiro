@@ -171,7 +171,7 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                         options={daysOptions}
                         selectedValue={settings.daysInAdvance.toString()}
                         onSelect={(opt) => {
-                            updateSettings({ daysInAdvance: parseInt(opt.id) });
+                            updateSettings({ daysInAdvance: typeof opt.id === 'string' ? parseInt(opt.id) : opt.id });
                             setIsDaysSheetOpen(false);
                             // Keep settings menu open
                         }}

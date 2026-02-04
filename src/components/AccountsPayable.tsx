@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { format, isToday, addDays, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,7 +24,7 @@ const AccountsPayable: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
     const [persistentBarIndex, setPersistentBarIndex] = useState<{ index: number; time: number } | null>(null);
-    const [activePieIndex, setActivePieIndex] = useState(-1);
+
     const [billActionMenu, setBillActionMenu] = useState<{ isOpen: boolean; bill: any }>({ isOpen: false, bill: null });
     const [viewType, setViewType] = useState<'sem' | 'mes'>('sem');
     const [selectedBillForDetail, setSelectedBillForDetail] = useState<any>(null); // State for bill details
@@ -50,9 +50,7 @@ const AccountsPayable: React.FC = () => {
         };
     }, [persistentBarIndex]);
 
-    const activeTransactions = useMemo(() => 
-        transactions.filter(t => t.type === 'expense' && t.status !== 'deleted'),
-    [transactions]);
+
 
     // Grouping and calculations
     const stats = useMemo(() => {
@@ -316,26 +314,7 @@ const AccountsPayable: React.FC = () => {
         }
     }, [viewType, stats.chartData]);
 
-    const onPieEnter = (_: any, index: number) => {
-        setActivePieIndex(index);
-    };
-
-    const renderActiveShape = (props: any) => {
-        const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-        return (
-            <Sector
-                cx={cx}
-                cy={cy}
-                innerRadius={innerRadius - 4}
-                outerRadius={outerRadius + 8}
-                startAngle={startAngle}
-                endAngle={endAngle}
-                fill={fill}
-                style={{ filter: `drop-shadow(0 0 12px ${fill}66)` }}
-            />
-        );
-    };
-
+    // Refs para o scroll por arraste (mouse)
     return (
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth pb-32 md:pb-8 transition-all duration-500 animate-in fade-in">
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
@@ -487,8 +466,6 @@ const AccountsPayable: React.FC = () => {
                                 </div>
 
                                 {stats.chartData.map((data: any, i: number) => {
-                                    const isShowing = activeBarIndex === i || (persistentBarIndex?.index === i);
-                                    const highestBlockCount = Math.max(data.blocksIncome, data.blocksExpense);
                                     
                                     // AJUSTE MANUAL DE ESPAÇAMENTO ENTRE BARRAS / ITENS:
                                     // O valor divisor (7 ou 10 abaixo) controla a proximidade das barras.
@@ -696,14 +673,10 @@ const AccountsPayable: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
-                                    activeIndex={activePieIndex}
-                                    activeShape={renderActiveShape}
                                     data={stats.predictedIncomeCategoryData}
                                     innerRadius={55}
                                     outerRadius={75}
                                     dataKey="value"
-                                    onMouseEnter={onPieEnter}
-                                    onMouseLeave={() => setActivePieIndex(-1)}
                                     animationBegin={0}
                                     animationDuration={1500}
                                     stroke="none"

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import BottomSheetSelect from './BottomSheetSelect';
-import BottomSheetIconSelector from './BottomSheetIconSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import type { PredictedIncome } from '@/types';
@@ -47,7 +46,6 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
     const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
     const [isSubcategorySheetOpen, setIsSubcategorySheetOpen] = useState(false);
     const [isReceiveDaySheetOpen, setIsReceiveDaySheetOpen] = useState(false);
-    const [isIconSheetOpen, setIsIconSheetOpen] = useState(false);
     const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
     const [isRecurrenceSheetOpen, setIsRecurrenceSheetOpen] = useState(false);
     const [isCustomPeriodSheetOpen, setIsCustomPeriodSheetOpen] = useState(false);
@@ -344,7 +342,6 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                                             <div className="col-span-1">
                                                 <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Ícone</label>
                                                 <button 
-                                                    onClick={() => setIsIconSheetOpen(true)}
                                                     className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center gap-3"
                                                 >
                                                     <span className="material-symbols-outlined text-xl">{newIncome.icon}</span>
@@ -514,7 +511,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                             </div>
                             <div className="col-span-1">
                                 <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Ícone</label>
-                                <button onClick={() => setIsIconSheetOpen(true)} className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center gap-3">
+                                <button className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center gap-3">
                                     <span className="material-symbols-outlined text-xl">{newIncome.icon}</span>
                                     <span className="text-dim">Alterar</span>
                                     <div className="flex-1" />
@@ -573,7 +570,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                     .filter(a => a.status !== 'deleted')
                     .map(acc => ({ id: acc.id, label: acc.name, icon: 'account_balance' }))
                 }
-                onSelect={(opt) => setNewIncome({ ...newIncome, targetAccount: String(opt.id) })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, targetAccount: String(opt.id) })}
             />
             <BottomSheetSelect 
                 isOpen={isCategorySheetOpen}
@@ -581,7 +578,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 title="Selecionar Categoria"
                 selectedValue={newIncome.category}
                 options={availableCategories.income.map(cat => ({ id: cat.id, label: cat.label, icon: cat.icon }))}
-                onSelect={(opt) => setNewIncome({ ...newIncome, category: opt.label, subcategory: '' })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, category: opt.label, subcategory: '' })}
             />
 
             <BottomSheetSelect 
@@ -590,7 +587,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 title="Selecionar Subcategoria"
                 selectedValue={newIncome.subcategory}
                 options={availableSubcategories.map((sub, idx) => ({ id: idx, label: sub, icon: 'subdirectory_arrow_right' }))}
-                onSelect={(opt) => setNewIncome({ ...newIncome, subcategory: opt.label })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, subcategory: opt.label })}
             />
             
             <BottomSheetSelect 
@@ -599,7 +596,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 title="Dia de Recebimento"
                 selectedValue={parseInt(newIncome.receiveDay) || 1}
                 options={DAYS_OPTIONS}
-                onSelect={(opt) => setNewIncome({ ...newIncome, receiveDay: String(opt.id) })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, receiveDay: String(opt.id) })}
             />
 
             <BottomSheetSelect 
@@ -608,7 +605,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 title="Recorrência"
                 selectedValue={newIncome.recurrencePeriod}
                 options={RECURRENCE_OPTIONS}
-                onSelect={(opt) => setNewIncome({ ...newIncome, recurrencePeriod: opt.id as any })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, recurrencePeriod: opt.id as any })}
             />
 
             <BottomSheetSelect 
@@ -617,7 +614,7 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 title="Unidade"
                 selectedValue={newIncome.customPeriod}
                 options={PERIOD_OPTIONS}
-                onSelect={(opt) => setNewIncome({ ...newIncome, customPeriod: opt.id as any })}
+                onSelect={(opt: any) => setNewIncome({ ...newIncome, customPeriod: opt.id as any })}
             />
 
             {/* Fab button para adicionar */}

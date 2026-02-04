@@ -15,7 +15,6 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import Modal from '@/components/Modal';
 import UserProfile from '@/components/UserProfile';
 import Settings from '@/components/Settings';
-import CardsManagement from '@/components/CardsManagement';
 import AccountsManagement from '@/components/AccountsManagement';
 import NotificationPanel from '@/components/NotificationPanel';
 import NotificationsCenter from '@/components/NotificationsCenter';
@@ -107,7 +106,6 @@ function AppContent() {
   const [profileAction, setProfileAction] = useState<string | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [addTransactionInitialData, setAddTransactionInitialData] = useState<any>(null);
-  const [showManagement, setShowManagement] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
 
   // Splash Screen Timer

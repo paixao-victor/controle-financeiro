@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import BottomSheetIconSelector from './BottomSheetIconSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactions } from '../contexts/TransactionsContext';
@@ -19,7 +19,6 @@ const AccountsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     });
 
     const [isIconSheetOpen, setIsIconSheetOpen] = useState(false);
-    const amountInputRef = useRef<HTMLInputElement>(null);
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value.replace(/\D/g, '');

@@ -16,7 +16,7 @@ const BANKS = [
     { id: 'bb', label: 'BB', color: '#0038a8', sigla: 'BB' },
 ];
 
-const MyCards: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const MyCards: React.FC<{ onBack: () => void }> = () => {
     const { cards, transactions, updateCard } = useTransactions();
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
     const [detailTab, setDetailTab] = useState<'credit' | 'debit'>('credit');

@@ -155,7 +155,7 @@ const CircularNumberSelector: React.FC<CircularNumberSelectorProps> = ({
 
     return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
+            <div className="fixed inset-0 z-9999 flex items-center justify-center p-6">
                 {/* Backdrop */}
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -289,7 +289,7 @@ const CircularNumberSelector: React.FC<CircularNumberSelectorProps> = ({
                                     repeatDelay: 0.1
                                 }}
                             >
-                                <svg className="w-10 h-10 text-[#47f425]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-10 h-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </motion.div>

@@ -1,9 +1,8 @@
 // No changes needed if no explicit import.
 // But to be safe and force a rebuild/refresh, I will add a comment or small change.
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNotifications } from '@/contexts/NotificationsContext';
-import { useTheme } from '@/contexts/ThemeContext'; // Assuming ThemeContext is available
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 

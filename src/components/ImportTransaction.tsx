@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { parseCSV, validateRow } from '@/utils/csvHandler';
-import type { ParseResult, CSVRow } from '@/utils/csvHandler';
+import { parseCSV } from '@/utils/csvHandler';
+import type { ParseResult } from '@/utils/csvHandler';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Upload, AlertTriangle, CheckCircle, FileUp, X } from 'lucide-react';
@@ -12,7 +12,6 @@ const ImportTransaction = () => {
     const { addTransaction } = useTransactions();
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<ParseResult | null>(null);
-    const [loading, setLoading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
 
     const handleDrag = useCallback((e: React.DragEvent) => {
@@ -42,14 +41,11 @@ const ImportTransaction = () => {
 
     const handleFile = async (selectedFile: File) => {
         setFile(selectedFile);
-        setLoading(true);
         try {
             const result = await parseCSV(selectedFile);
             setPreview(result);
         } catch (error) {
             console.error(error);
-        } finally {
-            setLoading(false);
         }
     };
 

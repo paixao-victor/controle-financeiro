@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { formatCurrency } from '@/utils/formatters';
-import type { Transaction, TransactionType, Card } from '@/types';
+import type { Transaction, TransactionType } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { v4 as uuidv4 } from 'uuid';
 import BottomSheetSelect from './BottomSheetSelect';
 import CircularNumberSelector from './CircularNumberSelector';
-import Modal from './Modal'; // Added Modal import
+
 
 interface AddTransactionProps {
     onClose: () => void;
@@ -229,7 +229,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                  };
             });
 
-            installmentsToSave.forEach((inst, i) => {
+            installmentsToSave.forEach((inst) => {
                 const installmentTx: Transaction = {
                     ...baseTransaction,
                     id: uuidv4(),
@@ -498,7 +498,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                                     {selectedCardId 
                                                         ? (() => {
                                                             const c = cards.find(item => String(item.id) === String(selectedCardId));
-                                                            return c ? (c.alias || c.name || 'Cartão Selecionado') : 'Cartão não encontrado';
+                                                            return c ? (c.alias || 'Cartão Selecionado') : 'Cartão não encontrado';
                                                         })()
                                                         : 'Qual cartão?'}
                                                 </span>

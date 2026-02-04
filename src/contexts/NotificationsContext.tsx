@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTransactions } from './TransactionsContext';
 import { useSettings } from './SettingsContext';
-import type { AppNotification, NotificationType } from '../types';
+import type { AppNotification } from '../types';
 
 interface NotificationSettings {
     daysInAdvance: number;
