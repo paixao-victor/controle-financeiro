@@ -1,0 +1,181 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  
+  <!-- ===== DEFINIÇÃO DE CLIP PARA ELIPSE ===== -->
+  <defs>
+    <!-- Parte de cima (fundo - y < 50) -->
+    <clipPath id="clipTop">
+      <rect x="0" y="0" width="100" height="51"/>
+    </clipPath>
+    <!-- Parte de baixo (frente - y >= 50) -->
+    <clipPath id="clipBottom">
+      <rect x="0" y="49" width="100" height="50"/>
+    </clipPath>
+
+    <mask id="fadeTop" maskUnits="userSpaceOnUse">
+      <linearGradient id="gradTop"
+        x1="0" y1="0" x2="0" y2="1"
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="translate(0 0) scale(1 50)">
+        <stop offset="0%" stop-color="white" stop-opacity="0"/>
+        <stop offset="60%" stop-color="white" stop-opacity="0"/>
+        <stop offset="100%" stop-color="white" stop-opacity="1"/>
+      </linearGradient>
+
+      <rect x="0" y="0" width="100%" height="51" fill="url(#gradTop)"/>
+    </mask>
+
+
+      
+    <mask id="fadeBottom" maskUnits="userSpaceOnUse">
+      <linearGradient id="gradBottom"
+        x1="0" y1="0" x2="0" y2="1"
+        gradientUnits="userSpaceOnUse"
+        gradientTransform="translate(0 50) scale(1 50)">
+        <stop offset="0%" stop-color="white" stop-opacity="1"/>
+        <stop offset="40%" stop-color="white" stop-opacity="1"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </linearGradient>
+
+      <rect x="0" y="49" width="100%" height="50" fill="url(#gradBottom)"/>
+    </mask>
+
+
+
+  </defs>
+
+  <!-- ===== BOLINHAS ANIMADAS ALEATÓRIAS ===== -->
+  <circle r="1.5" fill="#47f425" opacity="0.5">
+    <animate attributeName="cx" values="10; 25; 15; 30; 20; 10" dur="6s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="10; 20; 30; 15; 8; 10" dur="6s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.5; 0.7; 0.4; 0.6; 0.5; 0.5" dur="6s" repeatCount="indefinite" />
+  </circle>
+  
+  <circle r="1" fill="#47f425" opacity="0.4">
+    <animate attributeName="cx" values="85; 78; 90; 75; 88; 85" dur="7s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="15; 25; 10; 30; 20; 15" dur="7s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.4; 0.6; 0.3; 0.5; 0.4; 0.4" dur="7s" repeatCount="indefinite" />
+  </circle>
+  
+  <circle r="1.2" fill="#47f425" opacity="0.35">
+    <animate attributeName="cx" values="8; 20; 12; 25; 15; 8" dur="8s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="80; 70; 88; 75; 85; 80" dur="8s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.35; 0.55; 0.25; 0.45; 0.35; 0.35" dur="8s" repeatCount="indefinite" />
+  </circle>
+  
+  <circle r="1.5" fill="#47f425" opacity="0.45">
+    <animate attributeName="cx" values="82; 90; 75; 85; 78; 82" dur="5.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="85; 78; 92; 80; 88; 85" dur="5.5s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.45; 0.65; 0.35; 0.55; 0.45; 0.45" dur="5.5s" repeatCount="indefinite" />
+  </circle>
+
+  <circle r="0.8" fill="#47f425" opacity="0.3">
+    <animate attributeName="cx" values="20; 35; 25; 40; 30; 20" dur="9s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="5; 12; 8; 15; 10; 5" dur="9s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.3; 0.5; 0.2; 0.4; 0.3; 0.3" dur="9s" repeatCount="indefinite" />
+  </circle>
+
+  <circle r="1.2" fill="#47f425" opacity="0.4">
+    <animate attributeName="cx" values="75; 85; 70; 90; 80; 75" dur="6.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="8; 15; 5; 18; 12; 8" dur="6.5s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.4; 0.6; 0.3; 0.5; 0.4; 0.4" dur="6.5s" repeatCount="indefinite" />
+  </circle>
+
+  <circle r="1" fill="#47f425" opacity="0.35">
+    <animate attributeName="cx" values="65; 75; 60; 80; 70; 65" dur="7.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="92; 85; 95; 88; 90; 92" dur="7.5s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.35; 0.55; 0.25; 0.45; 0.35; 0.35" dur="7.5s" repeatCount="indefinite" />
+  </circle>
+
+  <circle r="0.9" fill="#47f425" opacity="0.38">
+    <animate attributeName="cx" values="25; 15; 30; 10; 20; 25" dur="8.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" values="90; 82; 95; 78; 88; 90" dur="8.5s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.38; 0.58; 0.28; 0.48; 0.38; 0.38" dur="8.5s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- ===== ELIPSE ATRÁS (SÓ PARTE DE CIMA - y < 50) ===== -->
+  <ellipse
+    cx="50" cy="50"
+    rx="42" ry="20"
+    fill="none"
+    stroke="#47f425"
+    stroke-width="3"
+    transform="rotate(-35 50 50)"
+    clip-path="url(#clipTop)"
+    mask="url(#fadeTop)"
+    opacity="1"
+  />
+
+  <!-- ===== $ ATRÁS (visível quando y < 50) ===== -->
+  <text
+    font-family="Arial, sans-serif"
+    font-weight="900"
+    fill="#47f425"
+    text-anchor="middle"
+    dominant-baseline="middle"
+  >
+    $
+    <!-- Posições exatas seguindo a elipse -->
+    <animate attributeName="x"
+      values="84.4; 85.6; 85.9; 85.3; 83.9; 81.6; 78.6; 74.8; 70.5; 65.6; 60.3; 54.8; 49.2; 43.6; 38.1; 33.0; 28.2; 24.0; 20.5; 17.6; 15.6; 14.4; 14.1; 14.7; 16.1; 18.4; 21.4; 25.2; 29.5; 34.4; 39.7; 45.2; 50.8; 56.4; 61.9; 67.0; 71.8; 76.0; 79.5; 82.4; 84.4"
+      dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="y"
+      values="25.9; 28.5; 31.6; 35.2; 39.2; 43.4; 47.8; 52.2; 56.6; 60.8; 64.7; 68.3; 71.5; 74.1; 76.1; 77.5; 78.2; 78.2; 77.5; 76.1; 74.1; 71.5; 68.4; 64.8; 60.8; 56.6; 52.2; 47.8; 43.4; 39.2; 35.3; 31.7; 28.5; 25.9; 23.9; 22.5; 21.8; 21.8; 22.5; 23.9; 25.9"
+      dur="4s" repeatCount="indefinite"/>
+    <!-- Tamanho: maior embaixo (mais próximo), menor em cima (mais longe) -->
+    <animate attributeName="font-size"
+      values="11; 11; 11.4; 12.4; 13.5; 14.7; 15.9; 17.1; 18.3; 19.5; 20.5; 21.5; 22; 22; 22; 22; 22; 22; 22; 22; 22; 22; 21.6; 20.6; 19.5; 18.3; 17.1; 15.9; 14.7; 13.5; 12.5; 11.5; 11; 11; 11; 11; 11; 11; 11; 11"
+      dur="4s" repeatCount="indefinite"/>
+    <!-- Visível apenas quando y < 50 (parte de cima = atrás) -->
+    <animate attributeName="opacity"
+      values="1; 1; 1; 1; 1; 1; 1; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1"
+      dur="4s" repeatCount="indefinite"/>
+  </text>
+
+  <!-- ===== CELULAR CENTRAL ===== -->
+  <g transform="translate(50, 50)">
+    <rect x="-15" y="-30" width="30" height="60" rx="6"
+      fill="#121811" stroke="#47f425" stroke-width="4"/>
+    <rect x="-11" y="-22" width="22" height="42" rx="2" fill="white"/>
+    <circle cx="0" cy="24" r="2" fill="#47f425"/>
+    <rect x="-4" y="-26" width="8" height="1.5" rx="0.75" fill="#47f425"/>
+  </g>
+
+  <!-- ===== ELIPSE NA FRENTE (SÓ PARTE DE BAIXO - y >= 50) ===== -->
+  <ellipse
+    cx="50" cy="50"
+    rx="42" ry="18"
+    fill="none"
+    stroke="#47f425"
+    stroke-width="3"
+    transform="rotate(-35 50 50)"
+    clip-path="url(#clipBottom)"
+    mask="url(#fadeBottom)"
+  />
+
+  <!-- ===== $ NA FRENTE (visível quando y >= 50) ===== -->
+  <text
+    font-family="Arial, sans-serif"
+    font-weight="900"
+    fill="#47f425"
+    text-anchor="middle"
+    dominant-baseline="middle"
+  >
+    $
+    <!-- Mesmas posições exatas -->
+    <animate attributeName="x"
+      values="84.4; 85.6; 85.9; 85.3; 83.9; 81.6; 78.6; 74.8; 70.5; 65.6; 60.3; 54.8; 49.2; 43.6; 38.1; 33.0; 28.2; 24.0; 20.5; 17.6; 15.6; 14.4; 14.1; 14.7; 16.1; 18.4; 21.4; 25.2; 29.5; 34.4; 39.7; 45.2; 50.8; 56.4; 61.9; 67.0; 71.8; 76.0; 79.5; 82.4; 84.4"
+      dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="y"
+      values="25.9; 28.5; 31.6; 35.2; 39.2; 43.4; 47.8; 52.2; 56.6; 60.8; 64.7; 68.3; 71.5; 74.1; 76.1; 77.5; 78.2; 78.2; 77.5; 76.1; 74.1; 71.5; 68.4; 64.8; 60.8; 56.6; 52.2; 47.8; 43.4; 39.2; 35.3; 31.7; 28.5; 25.9; 23.9; 22.5; 21.8; 21.8; 22.5; 23.9; 25.9"
+      dur="4s" repeatCount="indefinite"/>
+    <!-- Mesmo tamanho -->
+    <animate attributeName="font-size"
+      values="11; 11; 11.4; 12.4; 13.5; 14.7; 15.9; 17.1; 18.3; 19.5; 20.5; 21.5; 22; 22; 22; 22; 22; 22; 22; 22; 22; 22; 21.6; 20.6; 19.5; 18.3; 17.1; 15.9; 14.7; 13.5; 12.5; 11.5; 11; 11; 11; 11; 11; 11; 11; 11"
+      dur="4s" repeatCount="indefinite"/>
+    <!-- Visível apenas quando y >= 50 (parte de baixo = frente) -->
+    <animate attributeName="opacity"
+      values="0; 0; 0; 0; 0; 0; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0"
+      dur="4s" repeatCount="indefinite"/>
+  </text>
+
+</svg>

@@ -1,0 +1,7 @@
+type,category,subcategory,amount,date,description,isRecurring,recurrenceRule
+expense,Moradia,Aluguel,1200.00,2025-01-05,Pagamento Aluguel,yes,monthly
+income,Salário,Empresa X,5000.00,2025-01-01,Salário Mensal,yes,monthly
+expense,Mercado,,850.50,2025-01-10,Compra do Mês,no,
+expense,Transporte,Uber,45.90,2025-01-12,Viagem Trabalho,no,
+income,Freelance,Design,1200.00,2025-01-15,Projeto Logo,no,
+expense,Lazer,Cinema,60.00,2025-01-18,Filme Fim de Semana,no,

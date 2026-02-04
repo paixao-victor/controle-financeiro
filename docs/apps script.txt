@@ -1,0 +1,279 @@
+// ==== CONFIG BÁSICA ====
+const CONFIG = {
+  spreadsheetId: '1W5vEDWgNGqcrwSZww_cqcj1bvCHNkR7I-Lp7wCluorc', // ID da planilha
+  sheets: {
+    transactions: 'Transactions',
+    categories: 'Categories',
+    accounts: 'Accounts',
+    cards: 'Cards',
+    users: 'Users'  // NOVA ABA
+  }
+};
+
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return jsonResponse({ ok: false, error: 'No post data' });
+    }
+
+    const data = JSON.parse(e.postData.contents);
+
+    switch (data.action) {
+      case 'syncTransactions':
+        return jsonResponse(syncTransactions(data.payload || []));
+      case 'syncAccounts':
+        return jsonResponse(syncAccounts(data.payload || []));
+      case 'syncCategories':
+        return jsonResponse(syncCategories(data.payload || []));
+      case 'syncUsers':
+        return jsonResponse(syncUsers(data.payload || []));
+      default:
+        return jsonResponse({ ok: false, error: 'Unknown action' });
+    }
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err.message });
+  }
+}
+
+function doGet() {
+  return jsonResponse({ ok: true, message: 'Finance API online' });
+}
+
+// ==== HELPERS ====
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// FUNÇÃO PARA CRIAR ABAS AUTOMATICAMENTE COM CABEÇALHOS
+function ensureSheetExists(sheetName) {
+  const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  let sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    
+    // Cabeçalhos padrão por aba
+    const headers = getSheetHeaders(sheetName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1); // Congela a linha de cabeçalho
+  }
+  
+  return sheet;
+}
+
+function getSheetHeaders(sheetName) {
+  switch (sheetName) {
+    case 'Transactions':
+      return ['id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 'paymentMethod', 'paymentOption', 'cardId', 'accountId', 'createdAt', 'updatedAt', 'userId'];
+    case 'Categories':
+      return ['type', 'id', 'label', 'icon', 'subcategories'];
+    case 'Accounts':
+      return ['id', 'name', 'icon', 'balance', 'userId'];
+    case 'Cards':
+      return ['id', 'alias', 'type', 'lastDigits', 'limit', 'closingDay', 'dueDay', 'icon', 'userId'];
+    case 'Users':
+      return ['id', 'name', 'email', 'createdAt'];
+    default:
+      return ['id'];
+  }
+}
+
+// ==== SYNC TRANSACTIONS ====
+function syncTransactions(transactions) {
+  const sheet = ensureSheetExists(CONFIG.sheets.transactions); // Agora cria se não existir
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const header = values[0] || [];
+  const idIndex = header.indexOf('id');
+
+  const existingMap = {};
+  for (let i = 1; i < values.length; i++) {
+    const rowId = values[i][idIndex];
+    if (rowId) existingMap[rowId] = i + 1;
+  }
+
+  const rowsToAppend = [];
+
+  transactions.forEach(t => {
+    const row = [
+      t.id || '',
+      t.date || '',
+      t.amount || 0,
+      t.description || '',
+      t.category || '',
+      t.subcategory || '',
+      t.type || '',
+      t.paymentMethod || 'dinheiro', // PADRÃO
+      t.paymentOption || '',
+      t.cardId || '',
+      t.accountId || '',
+      t.createdAt || '',
+      t.updatedAt || '',
+      t.userId || 'victor' // PADRÃO PARA DADOS ANTIGOS
+    ];
+
+    if (t.id && existingMap[t.id]) {
+      const rowIndex = existingMap[t.id];
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    } else {
+      rowsToAppend.push(row);
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(
+      sheet.getLastRow() + 1,
+      1,
+      rowsToAppend.length,
+      rowsToAppend[0].length
+    ).setValues(rowsToAppend);
+  }
+
+  return { ok: true, inserted: rowsToAppend.length, total: transactions.length };
+}
+
+// ==== SYNC ACCOUNTS ====
+function syncAccounts(accounts) {
+  const sheet = ensureSheetExists(CONFIG.sheets.accounts);
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const header = values[0] || [];
+  const idIndex = header.indexOf('id');
+
+  const existingMap = {};
+  for (let i = 1; i < values.length; i++) {
+    const rowId = values[i][idIndex];
+    if (rowId) existingMap[rowId] = i + 1;
+  }
+
+  const rowsToAppend = [];
+
+  accounts.forEach(a => {
+    const row = [
+      a.id || '',
+      a.name || '',
+      a.icon || '',
+      a.balance || 0,
+      a.userId || 'victor' // PADRÃO
+    ];
+
+    if (a.id && existingMap[a.id]) {
+      const rowIndex = existingMap[a.id];
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    } else {
+      rowsToAppend.push(row);
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(
+      sheet.getLastRow() + 1,
+      1,
+      rowsToAppend.length,
+      rowsToAppend[0].length
+    ).setValues(rowsToAppend);
+  }
+
+  return { ok: true, inserted: rowsToAppend.length, total: accounts.length };
+}
+
+// ==== SYNC CATEGORIES ====
+function syncCategories(categories) {
+  const sheet = ensureSheetExists(CONFIG.sheets.categories);
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const header = values[0] || [];
+  const idIndex = header.indexOf('id');
+  const typeIndex = header.indexOf('type');
+
+  const existingMap = {};
+  for (let i = 1; i < values.length; i++) {
+    const rowId = values[i][idIndex];
+    const rowType = values[i][typeIndex];
+    if (rowId) existingMap[`${rowType}:${rowId}`] = i + 1;
+  }
+
+  const rowsToAppend = [];
+
+  categories.forEach(c => {
+    const subcats = (c.subcategories || []).join(';');
+    const row = [
+      c.type || 'expense',
+      c.id || '',
+      c.label || '',
+      c.icon || '',
+      subcats
+    ];
+
+    const key = `${c.type}:${c.id}`;
+    if (c.id && existingMap[key]) {
+      const rowIndex = existingMap[key];
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    } else {
+      rowsToAppend.push(row);
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(
+      sheet.getLastRow() + 1,
+      1,
+      rowsToAppend.length,
+      rowsToAppend[0].length
+    ).setValues(rowsToAppend);
+  }
+
+  return { ok: true, inserted: rowsToAppend.length, total: categories.length };
+}
+
+// ==== NOVA FUNÇÃO: SYNC USERS ====
+function syncUsers(users) {
+  const sheet = ensureSheetExists(CONFIG.sheets.users);
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const header = values[0] || [];
+  const idIndex = header.indexOf('id');
+
+  const existingMap = {};
+  for (let i = 1; i < values.length; i++) {
+    const rowId = values[i][idIndex];
+    if (rowId) existingMap[rowId] = i + 1;
+  }
+
+  const rowsToAppend = [];
+
+  users.forEach(u => {
+    const row = [
+      u.id || '',
+      u.name || '',
+      u.email || '',
+      u.createdAt || new Date().toISOString()
+    ];
+
+    if (u.id && existingMap[u.id]) {
+      const rowIndex = existingMap[u.id];
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    } else {
+      rowsToAppend.push(row);
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(
+      sheet.getLastRow() + 1,
+      1,
+      rowsToAppend.length,
+      rowsToAppend[0].length
+    ).setValues(rowsToAppend);
+  }
+
+  return { ok: true, inserted: rowsToAppend.length, total: users.length };
+}

@@ -1,0 +1,279 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradientes para um visual mais moderno -->
+    <linearGradient id="skinGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffb89d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffa889;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="shirtGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9c4a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff8833;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Personagem estilo Lottie - design flat moderno -->
+  <g transform="translate(100, 100)">
+    
+    <!-- Sombra -->
+    <ellipse cx="0" cy="75" rx="45" ry="10" fill="black" opacity="0.12">
+      <animate attributeName="rx" values="45; 50; 45" dur="2s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.12; 0.18; 0.12" dur="2s" repeatCount="indefinite" />
+    </ellipse>
+
+    <!-- Corpo e movimento -->
+    <g>
+      <!-- Movimento de balanço confuso -->
+      <animateTransform 
+        attributeName="transform" 
+        type="translate" 
+        values="0,0; -2,-3; 2,-2; -3,-1; 2,-3; 0,0" 
+        dur="5s" 
+        repeatCount="indefinite" 
+      />
+      
+      <!-- Corpo/Torso - Camiseta -->
+      <g transform="translate(0, 20)">
+        <!-- Camiseta -->
+        <path d="M -25,-10 L -25,25 L 25,25 L 25,-10 L 18,-15 L 18,-5 L -18,-5 L -18,-15 Z" 
+              fill="url(#shirtGradient)" />
+        
+        <!-- Gola -->
+        <ellipse cx="0" cy="-8" rx="8" ry="5" fill="#ff7722" />
+        
+        <!-- Detalhe bolso -->
+        <rect x="-8" y="5" width="10" height="8" rx="1" fill="#ff7722" opacity="0.6" />
+      </g>
+
+      <!-- Braço esquerdo - agitado -->
+      <g transform="translate(-28, 15)">
+        <ellipse cx="0" cy="10" rx="7" ry="18" fill="url(#shirtGradient)">
+          <animateTransform 
+            attributeName="transform" 
+            type="rotate" 
+            values="-20 0 0; -50 0 0; -15 0 0; -45 0 0; -20 0 0" 
+            dur="3.5s" 
+            repeatCount="indefinite" 
+          />
+        </ellipse>
+        <!-- Mão esquerda -->
+        <ellipse cx="-2" cy="28" rx="6" ry="7" fill="url(#skinGradient)">
+          <animateTransform 
+            attributeName="transform" 
+            type="rotate" 
+            values="-20 -2 28; -50 -2 28; -15 -2 28; -45 -2 28; -20 -2 28" 
+            dur="3.5s" 
+            repeatCount="indefinite" 
+          />
+        </ellipse>
+      </g>
+
+      <!-- Braço direito - agitado -->
+      <g transform="translate(28, 15)">
+        <ellipse cx="0" cy="10" rx="7" ry="18" fill="url(#shirtGradient)">
+          <animateTransform 
+            attributeName="transform" 
+            type="rotate" 
+            values="20 0 0; 55 0 0; 15 0 0; 50 0 0; 20 0 0" 
+            dur="3.5s" 
+            repeatCount="indefinite" 
+          />
+        </ellipse>
+        <!-- Mão direita -->
+        <ellipse cx="2" cy="28" rx="6" ry="7" fill="url(#skinGradient)">
+          <animateTransform 
+            attributeName="transform" 
+            type="rotate" 
+            values="20 2 28; 55 2 28; 15 2 28; 50 2 28; 20 2 28" 
+            dur="3.5s" 
+            repeatCount="indefinite" 
+          />
+        </ellipse>
+      </g>
+
+      <!-- Pescoço -->
+      <rect x="-8" y="8" width="16" height="10" rx="2" fill="url(#skinGradient)" />
+
+      <!-- Cabeça -->
+      <ellipse cx="0" cy="0" rx="22" ry="25" fill="url(#skinGradient)" />
+
+      <!-- Cabelo estilo moderno -->
+      <g fill="#3d2817">
+        <!-- Base do cabelo -->
+        <ellipse cx="0" cy="-12" rx="23" ry="16" />
+        <!-- Mechas/tufos -->
+        <ellipse cx="-8" cy="-20" rx="10" ry="12" />
+        <ellipse cx="8" cy="-20" rx="10" ry="12" />
+        <ellipse cx="0" cy="-24" rx="12" ry="10" />
+        <!-- Franja -->
+        <path d="M -15,-10 Q -12,-18 -8,-14 Q -4,-18 0,-15 Q 4,-18 8,-14 Q 12,-18 15,-10 L 12,-8 Q 8,-12 4,-10 Q 0,-12 -4,-10 Q -8,-12 -12,-8 Z" />
+      </g>
+
+      <!-- Rosto preocupado/confuso -->
+      
+      <!-- Olhos grandes procurando -->
+      <g>
+        <!-- Movimento dos olhos procurando -->
+        <animateTransform 
+          attributeName="transform" 
+          type="translate" 
+          values="0,0; -1,-1; 1,0; -1,1; 0,-1; 0,0" 
+          dur="4s" 
+          repeatCount="indefinite" 
+        />
+        
+        <!-- Olho esquerdo - base branca -->
+        <ellipse cx="-9" cy="-2" rx="5" ry="6" fill="white" />
+        <!-- Pupila esquerda -->
+        <ellipse cx="-9" cy="-1" rx="3" ry="4" fill="#2d1810">
+          <animate attributeName="cx" values="-9; -7; -11; -9; -8; -9" dur="4.5s" repeatCount="indefinite" />
+          <animate attributeName="cy" values="-1; -2; 0; -1; 1; -1" dur="4.5s" repeatCount="indefinite" />
+        </ellipse>
+        <!-- Brilho olho -->
+        <ellipse cx="-8" cy="-3" rx="1.5" ry="2" fill="white" opacity="0.8" />
+        
+        <!-- Olho direito - base branca -->
+        <ellipse cx="9" cy="-2" rx="5" ry="6" fill="white" />
+        <!-- Pupila direita -->
+        <ellipse cx="9" cy="-1" rx="3" ry="4" fill="#2d1810">
+          <animate attributeName="cx" values="9; 11; 7; 9; 10; 9" dur="4.5s" repeatCount="indefinite" />
+          <animate attributeName="cy" values="-1; 0; -2; -1; 1; -1" dur="4.5s" repeatCount="indefinite" />
+        </ellipse>
+        <!-- Brilho olho -->
+        <ellipse cx="10" cy="-3" rx="1.5" ry="2" fill="white" opacity="0.8" />
+      </g>
+
+      <!-- Sobrancelhas preocupadas -->
+      <path d="M -15,-8 Q -12,-11 -8,-9" stroke="#2d1810" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 15,-8 Q 12,-11 8,-9" stroke="#2d1810" stroke-width="2.5" fill="none" stroke-linecap="round" />
+
+      <!-- Boca preocupada (O) -->
+      <ellipse cx="0" cy="8" rx="3.5" ry="6" fill="#8b4a3d" opacity="0.9">
+        <animate attributeName="ry" values="6; 8; 6; 7; 6" dur="3.5s" repeatCount="indefinite" />
+        <animate attributeName="rx" values="3.5; 4; 3.5; 4.5; 3.5" dur="3.5s" repeatCount="indefinite" />
+      </ellipse>
+    </g>
+
+    <!-- Símbolos $ escapando e girando -->
+    <g font-family="Arial, sans-serif" font-weight="900" fill="#47f425">
+      
+      <!-- $ 1 - saindo pelo canto superior esquerdo -->
+      <text font-size="24">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="20; 0; -25; -50" dur="4.5s" repeatCount="indefinite" />
+        <animate attributeName="y" values="0; -20; -45; -75" dur="4.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 0.9; 0.7; 0" dur="4.5s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="18; 24; 20; 14" dur="4.5s" repeatCount="indefinite" />
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          values="0 20 0; 120 0 -20; 240 -25 -45; 360 -50 -75" 
+          dur="4.5s" 
+          repeatCount="indefinite" 
+        />
+      </text>
+
+      <!-- $ 2 - saindo pela direita -->
+      <text font-size="20">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="25; 50; 80; 110" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="y" values="10; 20; 15; 5" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 0.8; 0.5; 0" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="16; 22; 18; 12" dur="5s" repeatCount="indefinite" />
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          values="0 25 10; -90 50 20; -180 80 15; -270 110 5" 
+          dur="5s" 
+          repeatCount="indefinite" 
+        />
+      </text>
+
+      <!-- $ 3 - caindo -->
+      <text font-size="22">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="15; 5; -10; -25" dur="5.5s" repeatCount="indefinite" />
+        <animate attributeName="y" values="30; 60; 90; 120" dur="5.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 1; 0.6; 0" dur="5.5s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="22; 24; 20; 14" dur="5.5s" repeatCount="indefinite" />
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          values="0 15 30; 180 5 60; 360 -10 90; 540 -25 120" 
+          dur="5.5s" 
+          repeatCount="indefinite" 
+        />
+      </text>
+
+      <!-- $ 4 - diagonal superior direita -->
+      <text font-size="18">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="30; 55; 85; 115" dur="6s" repeatCount="indefinite" />
+        <animate attributeName="y" values="-5; -25; -50; -80" dur="6s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 0.7; 0.5; 0" dur="6s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="14; 20; 16; 10" dur="6s" repeatCount="indefinite" />
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          values="0 30 -5; 150 55 -25; 300 85 -50; 450 115 -80" 
+          dur="6s" 
+          repeatCount="indefinite" 
+        />
+      </text>
+
+      <!-- $ 5 - saindo pela esquerda baixo -->
+      <text font-size="26">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="10; -15; -45; -80" dur="5.8s" repeatCount="indefinite" />
+        <animate attributeName="y" values="35; 55; 75; 95" dur="5.8s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 1; 0.7; 0" dur="5.8s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="20; 28; 22; 14" dur="5.8s" repeatCount="indefinite" />
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          values="0 10 35; -120 -15 55; -240 -45 75; -360 -80 95" 
+          dur="5.8s" 
+          repeatCount="indefinite" 
+        />
+      </text>
+
+      <!-- $ 6 - mais rápido saindo pelo topo -->
+      <text font-size="16">
+        <tspan>$</tspan>
+        <animate attributeName="x" values="-5; -10; -20; -35" dur="3.5s" repeatCount="indefinite" />
+        <animate attributeName="y" values="15; -10; -40; -75" dur="3.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 0.9; 0.6; 0" dur="3.5s" repeatCount="indefinite" />
+        <animate attributeName="font-size" values="12; 18; 14; 8" dur="3.5s" repeatCount="indefinite" />
+      </text>
+    </g>
+
+    <!-- Linhas de confusão/estresse -->
+    <g stroke="#47f425" stroke-width="2.2" fill="none" opacity="0.5" stroke-linecap="round">
+      <path d="M -35,-15 Q -38,-20 -35,-25">
+        <animate attributeName="opacity" values="0; 0.7; 0" dur="2.5s" repeatCount="indefinite" />
+      </path>
+      <path d="M 35,-15 Q 38,-20 35,-25">
+        <animate attributeName="opacity" values="0; 0.7; 0" dur="2.5s" begin="0.6s" repeatCount="indefinite" />
+      </path>
+      <path d="M -30,-30 L -25,-35">
+        <animate attributeName="opacity" values="0; 0.6; 0" dur="2.5s" begin="1.2s" repeatCount="indefinite" />
+      </path>
+      <path d="M 30,-30 L 35,-35">
+        <animate attributeName="opacity" values="0; 0.6; 0" dur="2.5s" begin="1.8s" repeatCount="indefinite" />
+      </path>
+    </g>
+
+    <!-- Gotas de suor (detalhe extra de estresse) -->
+    <g fill="#6ec8f0" opacity="0.7">
+      <ellipse cx="-20" cy="-8" rx="2" ry="3">
+        <animate attributeName="cy" values="-8; 10; 10; 10" dur="2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.7; 0.7; 0; 0" dur="2s" repeatCount="indefinite" />
+      </ellipse>
+      <ellipse cx="22" cy="-6" rx="2" ry="3">
+        <animate attributeName="cy" values="-6; 12; 12; 12" dur="2s" begin="1s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.7; 0.7; 0; 0" dur="2s" begin="1s" repeatCount="indefinite" />
+      </ellipse>
+    </g>
+    
+  </g>
+</svg>

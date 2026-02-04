@@ -1,0 +1,181 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface CircularNumberSelectorProps {
+    isOpen: boolean;
+    onClose: () => void;
+    value: number;
+    onChange: (value: number) => void;
+    min?: number;
+    max?: number;
+    title?: string;
+}
+
+const CircularNumberSelector: React.FC<CircularNumberSelectorProps> = ({
+    isOpen,
+    onClose,
+    value,
+    onChange,
+    min = 1,
+    max = 80,
+    title = "Quantidade de Meses"
+}: CircularNumberSelectorProps) => {
+    const [localValue, setLocalValue] = useState(value);
+    const dialRef = useRef<HTMLDivElement>(null);
+    
+    // Sincronizar valor inicial
+    useEffect(() => {
+        if (isOpen) setLocalValue(value);
+    }, [isOpen, value]);
+
+    // Bloquear scroll
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
+    const handleInteraction = (clientX: number, clientY: number) => {
+        if (!dialRef.current) return;
+        
+        const rect = dialRef.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        // Calcular ângulo
+        const angle = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+        // Normalizar para 0-360 (começando do topo -90)
+        let normalizedAngle = (angle + 90 + 360) % 360;
+        
+        // Mapear ângulo para valor
+        const step = 360 / max;
+        let newValue = Math.round(normalizedAngle / step);
+        if (newValue < min) newValue = min;
+        if (newValue > max) newValue = max;
+        
+        setLocalValue(newValue);
+    };
+
+    const onMouseDown = (e: React.MouseEvent) => {
+        handleInteraction(e.clientX, e.clientY);
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            handleInteraction(moveEvent.clientX, moveEvent.clientY);
+        };
+        const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    const handleConfirm = () => {
+        onChange(localValue);
+        onClose();
+    };
+
+    // Cálculos Visuais
+    const rotation = (localValue / max) * 360;
+
+    if (!isOpen) return null;
+
+    return createPortal(
+        <AnimatePresence>
+            <div className="fixed inset-0 z-1100 flex items-center justify-center p-6">
+                {/* Backdrop heavily blurred */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                    className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+                />
+
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    className="relative w-full max-w-sm bg-surface rounded-[3rem] p-8 shadow-2xl border border-white/10 flex flex-col items-center gap-8"
+                >
+                    <header className="text-center">
+                        <h3 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] mb-2">{title}</h3>
+                        <div className="text-6xl font-black text-content tracking-tighter">
+                            {localValue}
+                            <span className="text-sm text-dim ml-2 uppercase">meses</span>
+                        </div>
+                    </header>
+
+                    {/* Circular Dial Area */}
+                    <div 
+                        ref={dialRef}
+                        className="relative size-64 flex items-center justify-center cursor-pointer select-none group"
+                        onMouseDown={onMouseDown}
+                        onTouchMove={onTouchMove}
+                    >
+                        {/* Outer Ring Background */}
+                        <div className="absolute inset-0 rounded-full border-4 border-content/5 nm-input-inset" />
+                        
+                        {/* SVG Progress Ring */}
+                        <svg className="absolute inset-0 size-full -rotate-90">
+                            <circle
+                                cx="50%"
+                                cy="50%"
+                                r="48%"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                strokeDasharray="100 100"
+                                strokeDashoffset={100 - (localValue / max) * 100}
+                                className="text-primary transition-all duration-150"
+                                style={{ strokeDasharray: '301.59', strokeDashoffset: 301.59 - (301.59 * (localValue / max)) }}
+                            />
+                        </svg>
+
+                        {/* Dial Knob */}
+                        <motion.div 
+                            className="absolute top-0 size-12 bg-primary rounded-full shadow-glow flex items-center justify-center z-10"
+                            style={{ 
+                                originX: "50%", 
+                                originY: "128px", // Raio do círculo
+                                rotate: rotation - 0 // Ajustar para o topo
+                            }}
+                        >
+                            <div className="size-4 bg-secondary rounded-full" />
+                        </motion.div>
+
+                        {/* Center Visuals */}
+                        <div className="size-40 rounded-full nm-card flex flex-col items-center justify-center">
+                            <span className="material-symbols-outlined text-4xl text-primary animate-pulse">calendar_month</span>
+                        </div>
+                    </div>
+
+                    <div className="w-full grid grid-cols-2 gap-4">
+                        <button 
+                            onClick={onClose}
+                            className="py-4 rounded-2xl text-xs font-bold text-dim uppercase hover:bg-content/5 transition-all"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={handleConfirm}
+                            className="py-4 bg-primary text-secondary rounded-2xl text-xs font-black uppercase shadow-glow hover:brightness-105 active:scale-95 transition-all"
+                        >
+                            Confirmar
+                        </button>
+                    </div>
+                </motion.div>
+            </div>
+        </AnimatePresence>,
+        document.body
+    );
+};
+
+export default CircularNumberSelector;
