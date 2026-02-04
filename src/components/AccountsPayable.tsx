@@ -24,10 +24,25 @@ const AccountsPayable: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
     const [persistentBarIndex, setPersistentBarIndex] = useState<{ index: number; time: number } | null>(null);
-
     const [billActionMenu, setBillActionMenu] = useState<{ isOpen: boolean; bill: any }>({ isOpen: false, bill: null });
     const [viewType, setViewType] = useState<'sem' | 'mes'>('sem');
     const [selectedBillForDetail, setSelectedBillForDetail] = useState<any>(null); // State for bill details
+    const [visibleIndices, setVisibleIndices] = useState<Set<number>>(new Set());
+
+    // Infinite Scroll States with Windowing
+    const [pastOffset, setPastOffset] = useState(3);
+    const [futureOffset, setFutureOffset] = useState(9);
+    const MAX_TOTAL_BARS = 18; // Maximum bars to keep in memory
+    const LOAD_INCREMENT = 3; // How many to load at once
+    const leftSentinelRef = React.useRef<HTMLDivElement>(null);
+    const rightSentinelRef = React.useRef<HTMLDivElement>(null);
+
+    // Reset offsets when changing viewType
+    useEffect(() => {
+        setPastOffset(3);
+        setFutureOffset(9);
+    }, [viewType]);
+
     const { accounts } = useTransactions(); // Need accounts for icons
     const scrollRef = useDragScroll();
 
@@ -49,6 +64,43 @@ const AccountsPayable: React.FC = () => {
             window.removeEventListener('click', handleClickOutside);
         };
     }, [persistentBarIndex]);
+
+    // Infinite Scroll Observer with Windowing
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (entry.target === leftSentinelRef.current) {
+                        setPastOffset(prev => {
+                            const newPast = prev + LOAD_INCREMENT;
+                            // If total exceeds max, reduce future offset
+                            setFutureOffset(current => {
+                                const total = newPast + current;
+                                return total > MAX_TOTAL_BARS ? Math.max(3, current - LOAD_INCREMENT) : current;
+                            });
+                            return newPast;
+                        });
+                    } else if (entry.target === rightSentinelRef.current) {
+                        setFutureOffset(prev => {
+                            const newFuture = prev + LOAD_INCREMENT;
+                            // If total exceeds max, reduce past offset
+                            setPastOffset(current => {
+                                const total = current + newFuture;
+                                return total > MAX_TOTAL_BARS ? Math.max(3, current - LOAD_INCREMENT) : current;
+                            });
+                            return newFuture;
+                        });
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+
+        if (leftSentinelRef.current) observer.observe(leftSentinelRef.current);
+        if (rightSentinelRef.current) observer.observe(rightSentinelRef.current);
+
+        return () => observer.disconnect();
+    }, [viewType]); // Recalibrate on view type change
+
 
 
 
@@ -164,9 +216,9 @@ const AccountsPayable: React.FC = () => {
         // Chart Data - Extended Timeline
         const today = new Date();
         const rawChartData = viewType === 'sem' 
-            ? Array.from({ length: 24 }, (_, i) => { 
+            ? Array.from({ length: pastOffset + futureOffset }, (_, i) => { 
                 const baseDate = startOfMonth(today);
-                const weekStart = addDays(baseDate, (i - 6) * 7); 
+                const weekStart = addDays(baseDate, (i - pastOffset) * 7); 
                 const weekEnd = addDays(weekStart, 6);
 
                 const totalExpenseRealized = transactions
@@ -211,6 +263,7 @@ const AccountsPayable: React.FC = () => {
 
                 return {
                     day: `S${i + 1}`,
+                    date: format(weekStart, 'yyyy-MM-dd'),
                     label: `${format(weekStart, 'dd/MM')} - ${format(weekEnd, 'dd/MM')}`,
                     expenseRealized: totalExpenseRealized,
                     expenseProjected: Math.max(0, totalExpenseProjected - totalExpenseRealized),
@@ -220,8 +273,8 @@ const AccountsPayable: React.FC = () => {
                     isFuture: weekStart > today
                 };
             })
-            : Array.from({ length: 24 }, (_, i) => {
-                const exactMonth = addMonths(startOfMonth(today), i - 6);
+            : Array.from({ length: pastOffset + futureOffset }, (_, i) => {
+                const exactMonth = addMonths(startOfMonth(today), i - pastOffset);
                 const targetMonthStart = startOfMonth(exactMonth);
                 const targetMonthEnd = endOfMonth(exactMonth);
                 
@@ -243,6 +296,7 @@ const AccountsPayable: React.FC = () => {
 
                 return {
                     day: format(exactMonth, 'MMM', { locale: ptBR }).toUpperCase(),
+                    date: format(exactMonth, 'yyyy-MM-dd'),
                     label: format(exactMonth, 'MMMM yyyy', { locale: ptBR }),
                     expenseRealized: totalExpenseRealized,
                     expenseProjected: Math.max(0, totalExpenseProjected - totalExpenseRealized),
@@ -301,7 +355,55 @@ const AccountsPayable: React.FC = () => {
             totalPredictedIncome,
             predictedIncomeCategoryData
         } as any;
-    }, [transactions, predictedExpenses, predictedIncomes, cards, viewType, selectedMonth, accounts]);
+    }, [transactions, predictedExpenses, predictedIncomes, cards, viewType, selectedMonth, accounts, pastOffset, futureOffset]);
+
+    // Observe Individual Bars for Range Indicator
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            setVisibleIndices(prev => {
+                const next = new Set(prev);
+                entries.forEach(entry => {
+                    const index = parseInt(entry.target.getAttribute('data-index') || '-1');
+                    if (index === -1) return;
+                    
+                    if (entry.isIntersecting) {
+                        next.add(index);
+                    } else {
+                        next.delete(index);
+                    }
+                });
+                return next;
+            });
+        }, { 
+            threshold: 0.5,
+            root: scrollRef.current 
+        });
+
+        const bars = document.querySelectorAll('.bar-item');
+        bars.forEach(bar => observer.observe(bar));
+
+        return () => observer.disconnect();
+    }, [stats.chartData]);
+
+    // Calculate visible range based on visibleIndices
+    const visibleRangeText = useMemo(() => {
+        if (!stats.chartData || stats.chartData.length === 0 || visibleIndices.size === 0) return '';
+        
+        const sortedIndices = Array.from(visibleIndices).sort((a, b) => a - b);
+        const firstIdx = sortedIndices[0];
+        const lastIdx = sortedIndices[sortedIndices.length - 1];
+        
+        const firstBar = stats.chartData[firstIdx];
+        const lastBar = stats.chartData[lastIdx];
+        
+        if (!firstBar?.date || !lastBar?.date) return '';
+        
+        if (viewType === 'sem') {
+            return `${format(parseISO(firstBar.date), 'dd/MM')} - ${format(parseISO(lastBar.date), 'dd/MM')}`;
+        } else {
+            return `${format(parseISO(firstBar.date), 'MM/yy')} - ${format(parseISO(lastBar.date), 'MM/yy')}`;
+        }
+    }, [stats.chartData, viewType, visibleIndices]);
 
     // Scroll to Current Month/Week on Load
     useEffect(() => {
@@ -446,14 +548,21 @@ const AccountsPayable: React.FC = () => {
                                     MÊS
                                 </button>
                             </div>
+                            
+                            {/* Visible Range Indicator */}
+                            {visibleRangeText && (
+                                <div className="text-center mt-2">
+                                    <span className="text-[8px] font-bold text-dim uppercase tracking-wider">
+                                        {visibleRangeText}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div 
                             ref={scrollRef}
-                            className="flex-1 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing pb-2 snap-x snap-mandatory px-2"
+                            className="flex-1 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing pb-2 snap-x snap-mandatory px-0 h-[280px] md:h-[320px] relative"
                         >
-                            <div className="flex items-end justify-start gap-1 min-w-max h-full min-h-[120px] pb-1 relative">
-                                {/* Grid Lines */}
                                 <div className="absolute inset-x-0 inset-y-0 flex flex-col justify-between pointer-events-none py-1 opacity-25">
                                     <div className="w-full h-px border-b border-dashed border-content/50"></div>
                                     <div className="w-full h-px border-b border-dashed border-content/50"></div>
@@ -465,13 +574,20 @@ const AccountsPayable: React.FC = () => {
                                     <div className="w-full h-px border-b border-dashed border-content/50"></div>
                                 </div>
 
+                                <div className="flex flex-row items-end h-full gap-2">
+                                    <div ref={leftSentinelRef} className="w-4 md:w-8 shrink-0 h-full" />
+
                                 {stats.chartData.map((data: any, i: number) => {
                                     const isShowing = activeBarIndex === i || (persistentBarIndex?.index === i);
+                                    const isFirst = i === 0;
+                                    const isLast = i === stats.chartData.length - 1;
+                                    
                                     const highestBlockCount = Math.max(data.blocksIncome, data.blocksIncomeProjected, data.blocksIncomeRealized, data.blocksExpense, data.blocksExpenseProjected, data.blocksExpenseRealized);
 
                                     return (
-                                        <div 
+                                        <motion.div 
                                             key={i} 
+                                            layout
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setPersistentBarIndex(persistentBarIndex?.index === i ? null : { index: i, time: Date.now() });
@@ -479,7 +595,12 @@ const AccountsPayable: React.FC = () => {
                                             }}
                                             onMouseEnter={() => setActiveBarIndex(i)}
                                             onMouseLeave={() => setActiveBarIndex(null)}
-                                            className={`flex flex-col items-center w-[calc((100vw-30px)/7)] md:w-[calc((100%-40px)/18)] h-full justify-end relative group shrink-0 snap-center transition-opacity ${isShowing ? 'z-[600]' : 'z-10'}`}>
+                                            style={{
+                                                marginLeft: (isShowing && isFirst) ? '80px' : '0px',
+                                                marginRight: (isShowing && isLast) ? '80px' : '0px',
+                                            }}
+                                            data-index={i}
+                                            className={`bar-item flex flex-col items-center min-w-[60px] md:min-w-[70px] w-[calc((100vw-30px)/7)] md:w-[80px] h-full justify-end relative group shrink-0 snap-center transition-all duration-300 ${isShowing ? 'z-[600]' : 'z-10'}`}>
                                             
                                             <AnimatePresence>
                                                 {isShowing && (
@@ -493,7 +614,10 @@ const AccountsPayable: React.FC = () => {
                                                         className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none z-50"
                                                     >
                                                         <div className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 p-2 rounded-2xl shadow-2xl border border-white/10 dark:border-black/5 flex flex-col items-center gap-2 min-w-[160px]">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{data.label}</span>
+                                                            <div className="w-full flex items-center justify-between">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{data.label}</span>
+                                                                <span className="text-[10px] font-black text-primary">{data.date && format(parseISO(data.date), 'yyyy')}</span>
+                                                            </div>
                                                             
                                                             <div className="w-full space-y-2">
                                                                 {/* Income Section */}
@@ -616,29 +740,32 @@ const AccountsPayable: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-center mt-3 relative">
-                                            <span className={`text-[12px] font-bold text-center leading-tight ${(data.income + data.expense) > 0 ? 'text-content' : 'text-dim'}`}>
-                                                {data.day}
-                                            </span>
-                                            <span className="text-[8px] text-dim opacity-50 uppercase tracking-wider scale-125 origin-top mt-0.5">
-                                                {viewType === 'sem' ? 'Semana' : 'Mês'}
-                                            </span>
-                                            
-                                            {/* Highlight Line for current period */}
-                                            {data.isCurrent && (
-                                                <motion.div 
-                                                    layoutId="current-chart-indicator"
-                                                    className="absolute -bottom-3 w-full h-2 bg-primary rounded-[4px] shadow-glow-sm"
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                <span className={`text-[12px] font-bold text-center leading-tight ${(data.income + data.expense) > 0 ? 'text-content' : 'text-dim'}`}>
+                                                    {data.day}
+                                                </span>
+                                                <span className="text-[8px] text-dim opacity-50 uppercase tracking-wider scale-125 origin-top mt-0.5">
+                                                    {viewType === 'sem' ? 'Semana' : 'Mês'}
+                                                </span>
+                                                
+                                                {/* Highlight Line for current period */}
+                                                {data.isCurrent && (
+                                                    <motion.div 
+                                                        layoutId="current-chart-indicator"
+                                                        className="absolute -bottom-3 w-full h-2 bg-primary rounded-[4px] shadow-glow-sm"
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                    />
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+
+                                    <div ref={rightSentinelRef} className="w-4 md:w-8 shrink-0 h-full" />
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div>
 
                 {/* Card de Receitas Previstas - NOVO */}
@@ -845,17 +972,16 @@ const AccountsPayable: React.FC = () => {
                         </div>
                     )}
                 </div>
-            </div>
 
-            {transactionToEdit && (
-                <EditTransactionModal 
-                    transaction={transactionToEdit}
-                    onClose={() => setTransactionToEdit(null)}
-                    onSaveSuccess={() => setTransactionToEdit(null)}
-                />
-            )}
+                {transactionToEdit && (
+                    <EditTransactionModal 
+                        transaction={transactionToEdit as any}
+                        onClose={() => setTransactionToEdit(null)}
+                        onSaveSuccess={() => setTransactionToEdit(null)}
+                    />
+                )}
 
-            <BottomSheetSelect 
+                <BottomSheetSelect 
                 isOpen={billActionMenu.isOpen}
                 onClose={() => setBillActionMenu({ isOpen: false, bill: null })}
                 title="Ações da Conta"
@@ -864,7 +990,7 @@ const AccountsPayable: React.FC = () => {
                     { id: 'edit', label: 'Editar', icon: 'edit' },
                     { id: 'delete', label: 'Excluir este mês', icon: 'delete' }
                 ]}
-                onSelect={(opt) => {
+                onSelect={(opt: any) => {
                     const bill = billActionMenu.bill;
                     if (opt.id === 'pay') {
                         window.dispatchEvent(new CustomEvent('open-add-transaction', {
@@ -879,11 +1005,7 @@ const AccountsPayable: React.FC = () => {
                     } else if (opt.id === 'edit') {
                         setTransactionToEdit(bill);
                     } else if (opt.id === 'delete') {
-                        // For simplicity, using confirm here. In a real app, a nicer modal would be better.
                         if (confirm('Deseja realmente ocultar esta conta este mês?')) {
-                            // Logic for deleting/ignoring this month's instance
-                            // This depends on how predicted expenses are handled.
-                            // Assuming we can mark it as 'ignored' in TransactionsContext
                             alert('Funcionalidade de exclusão pontual será implementada na sincronização.');
                         }
                     }
@@ -891,11 +1013,9 @@ const AccountsPayable: React.FC = () => {
                 }}
             />
 
-            {/* Invoice Detail Modal (Reused from Dashboard logic) */}
             <Modal isOpen={!!selectedBillForDetail} onClose={() => setSelectedBillForDetail(null)} className="overflow-visible">
                 {selectedBillForDetail && (
                     <>
-                        {/* Desktop: Render Floating Card relative to Modal */}
                         <div className="hidden md:flex absolute -top-[270px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
                             <div className="pointer-events-auto w-[60%] max-w-lg animate-in slide-in-from-bottom-8 duration-500">
                                 <div 
@@ -911,8 +1031,8 @@ const AccountsPayable: React.FC = () => {
                                             <div className="size-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
                                                 <span className="font-black text-sm">
                                                     {(() => {
-                                                        const card = cards.find(c => c.id === selectedBillForDetail?.cardId);
-                                                        return card?.initials || BANKS.find(b => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
+                                                        const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
+                                                        return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
                                                     })()}
                                                 </span>
                                             </div>
@@ -923,7 +1043,7 @@ const AccountsPayable: React.FC = () => {
                                                 <span className="text-[10px] uppercase opacity-70 font-medium tracking-widest leading-none text-left">Cartão</span>
                                                 <span className="font-bold tracking-tight text-xl truncate max-w-[220px] text-left">{selectedBillForDetail?.subcategory}</span>
                                             </div>
-                                            {cards.find(c => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
+                                            {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
                                                 <div className="flex flex-col items-end">
                                                     <div className="flex -space-x-1.5 opacity-90">
                                                         <div className="size-5 rounded-full bg-[#eb001b]" />
@@ -941,106 +1061,98 @@ const AccountsPayable: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col h-full max-h-[85vh] p-1 overflow-y-auto custom-scrollbar relative">
-                            {/* Modal Internal Header */}
                             <div className="flex items-center justify-between p-4 md:p-6 mb-2">
-                        <div>
-                            <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedBillForDetail?.subcategory}</h3>
-                            <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Fatura de {format(new Date(), 'MMMM', { locale: ptBR })}</p>
-                        </div>
-                        <button 
-                            onClick={() => setSelectedBillForDetail(null)}
-                            className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-dim">close</span>
-                        </button>
-                    </div>
-
-                    {/* Mobile: In-Flow Card Visual */}
-                    <div className="md:hidden px-6 pb-6">
-                        <div 
-                            className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
-                            style={{ 
-                                backgroundColor: selectedBillForDetail?.color,
-                                background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`
-                            }}
-                        >
-                            <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
-                            <div className="relative p-5 h-full flex flex-col justify-between text-white">
-                                <div className="flex justify-between items-start">
-                                    <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-                                        <span className="font-black text-xs">
-                                            {(() => {
-                                                const card = cards.find(c => c.id === selectedBillForDetail?.cardId);
-                                                return card?.initials || BANKS.find(b => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
+                                <div>
+                                    <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedBillForDetail?.subcategory}</h3>
+                                    <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Fatura de {format(new Date(), 'MMMM', { locale: ptBR })}</p>
                                 </div>
-                                <div className="flex justify-between items-end">
-                                    <div>
-                                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedBillForDetail?.subcategory}</p>
-                                        <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedBillForDetail?.amount || 0)}</p>
-                                    </div>
-                                    {cards.find(c => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
-                                        <div className="flex flex-col items-end">
-                                            <div className="flex -space-x-1 opacity-90">
-                                                <div className="size-4 rounded-full bg-[#eb001b]" />
-                                                <div className="size-4 rounded-full bg-[#f79e1b]" />
+                                <button 
+                                    onClick={() => setSelectedBillForDetail(null)}
+                                    className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-dim">close</span>
+                                </button>
+                            </div>
+
+                            <div className="md:hidden px-6 pb-6">
+                                <div 
+                                    className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
+                                    style={{ 
+                                        backgroundColor: selectedBillForDetail?.color,
+                                        background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`
+                                    }}
+                                >
+                                    <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
+                                    <div className="relative p-5 h-full flex flex-col justify-between text-white">
+                                        <div className="flex justify-between items-start">
+                                            <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
+                                                <span className="font-black text-xs">
+                                                    {(() => {
+                                                        const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
+                                                        return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
+                                                    })()}
+                                                </span>
                                             </div>
+                                            <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
                                         </div>
-                                    ) : (
-                                        <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-6 pb-20 md:pb-8 custom-scrollbar">
-                        
-                        
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 rotate-12">
-                                    <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
-                                </div>
-                                <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Total Atual</span>
-                                <span className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedBillForDetail?.amount || 0)}</span>
-                            </div>
-                            <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150">
-                                    <span className="material-symbols-outlined text-6xl text-primary">analytics</span>
-                                </div>
-                                <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Itens na Fatura</span>
-                                <span className="text-xl font-black text-content tracking-tight">{selectedBillForDetail?.transactions?.length || 0}</span>
-                            </div>
-                        </div>
-
-
-                        <div className="space-y-4">
-                            <div className="space-y-3">
-                                <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Lançamentos na Fatura</h4>
-                                {selectedBillForDetail?.transactions?.length === 0 ? (
-                                    <div className="text-center py-10 text-dim/40 text-xs font-bold uppercase italic border-2 border-dashed border-white/5 rounded-2xl">Nenhuma transação encontrada</div>
-                                ) : (
-                                    selectedBillForDetail?.transactions?.map((t: any, idx: number) => (
-                                        <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-content">{t.description || t.subcategory || t.category}</span>
-                                                <span className="text-[9px] text-dim uppercase font-bold">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedBillForDetail?.subcategory}</p>
+                                                <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedBillForDetail?.amount || 0)}</p>
                                             </div>
-                                            <span className="text-sm font-black text-content">{formatCurrency(t.amount)}</span>
+                                            {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
+                                                <div className="flex flex-col items-end">
+                                                    <div className="flex -space-x-1 opacity-90">
+                                                        <div className="size-4 rounded-full bg-[#eb001b]" />
+                                                        <div className="size-4 rounded-full bg-[#f79e1b]" />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
+                                            )}
                                         </div>
-                                    ))
-                                )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-6 pb-20 md:pb-8 custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 rotate-12">
+                                            <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Total Atual</span>
+                                        <span className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedBillForDetail?.amount || 0)}</span>
+                                    </div>
+                                    <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150">
+                                            <span className="material-symbols-outlined text-6xl text-primary">analytics</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Itens na Fatura</span>
+                                        <span className="text-xl font-black text-content tracking-tight">{selectedBillForDetail?.transactions?.length || 0}</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Lançamentos na Fatura</h4>
+                                        {selectedBillForDetail?.transactions?.length === 0 ? (
+                                            <div className="text-center py-10 text-dim/40 text-xs font-bold uppercase italic border-2 border-dashed border-white/5 rounded-2xl">Nenhuma transação encontrada</div>
+                                        ) : (
+                                            selectedBillForDetail?.transactions?.map((t: any, idx: number) => (
+                                                <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-content">{t.description || t.subcategory || t.category}</span>
+                                                        <span className="text-[9px] text-dim uppercase font-bold">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black text-content">{formatCurrency(t.amount)}</span>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                    </div>
-                </div>
-                
                     </>
                 )}
             </Modal>

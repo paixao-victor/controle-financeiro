@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import type { Transaction } from '@/types';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { format, isToday, isYesterday, isSameMonth, subMonths } from 'date-fns';
+import { format, isToday, isYesterday, isSameMonth, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ExportModal } from './ExportModal';
 import { capitalize, removeAccents } from '@/utils/formatters';
@@ -172,11 +172,8 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
 
     // Cálculos de Resumo (SEMPRE DO MÊS ATUAL ou GERAL - seguindo o padrão de extrato)
     const summary = useMemo(() => {
-        // Por padrão, o resumo do topo reflete o MÊS ATUAL para ser útil
-        // Mas o usuário pode querer ver geral. Por equanto, vamos manter geral ou filtrado?
-        // O HTML diz "Economias este mês". Então vamos calcular do mês atual.
         const now = new Date();
-        const thisMonthTransactions = transactions.filter(t => isSameMonth(new Date(t.date), now));
+        const thisMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), now));
 
         const income = thisMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const expense = thisMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
@@ -184,7 +181,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         
         // Dados do mês anterior para comparação
         const lastMonth = subMonths(now, 1);
-        const lastMonthTransactions = transactions.filter(t => isSameMonth(new Date(t.date), lastMonth));
+        const lastMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), lastMonth));
         const lastMonthIncome = lastMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthSavingsAmount = lastMonthIncome - lastMonthExpense;
