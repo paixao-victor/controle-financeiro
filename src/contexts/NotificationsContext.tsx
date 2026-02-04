@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTransactions } from './TransactionsContext';
+import { useSettings } from './SettingsContext';
 import type { AppNotification, NotificationType } from '../types';
 
 interface NotificationSettings {
@@ -20,7 +21,8 @@ interface NotificationsContextType {
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
 
 export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { cards } = useTransactions();
+    const { cards, transactions } = useTransactions();
+    const { savingsGoal } = useSettings();
     
     // Settings State
     const [settings, setSettings] = useState<NotificationSettings>(() => {
@@ -131,9 +133,45 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         };
 
         checkNotifications();
-        // Run once on mount and whenever deps change. 
-        // In a real app we might want a simpler interval or run only once per session.
     }, [cards, settings.daysInAdvance]);
+
+    // Goal Notifications Logic
+    useEffect(() => {
+        const checkGoalReached = () => {
+            const now = new Date();
+            const thisMonthTransactions = transactions.filter(t => {
+                const date = new Date(t.date);
+                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+            });
+
+            const income = thisMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+            const expense = thisMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+            const savingsPercent = income > 0 ? ((income - expense) / income) * 100 : 0;
+            const goal = savingsGoal || 20;
+
+            if (savingsPercent >= goal) {
+                const title = 'Meta de Economia!';
+                const message = `Parabéns! Você já economizou ${savingsPercent.toFixed(0)}% das suas receitas este mês (Meta: ${goal}%).`;
+                
+                addSystemNotification({
+                    title,
+                    message,
+                    type: 'success'
+                });
+
+                // Browser Push Notification
+                if (Notification.permission === 'granted') {
+                    new Notification(title, { body: message, icon: '/favicon.ico' });
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission();
+                }
+            }
+        };
+
+        if (transactions.length > 0) {
+            checkGoalReached();
+        }
+    }, [transactions]);
 
 
     // Actions

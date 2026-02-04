@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, Sector } fro
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
 import BottomSheetSelect from './BottomSheetSelect';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const BANKS = [
     { id: 'nubank', label: 'Nubank', color: '#820ad1', sigla: 'NU' },
@@ -26,6 +27,7 @@ const Dashboard = () => {
         cards,
         updateCard
     } = useTransactions();
+    const { formatValue } = useSettings();
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [activeIndex, setActiveIndex] = useState(-1);
     const [clickedIndex, setClickedIndex] = useState(-1);
@@ -646,7 +648,7 @@ const Dashboard = () => {
                         <span className="text-xs font-medium text-white/60 block mb-1">Saldo disponível</span>
                         <div className="flex items-center gap-3">
                             <span className="text-4xl lg:text-5xl font-bold text-white tracking-tight block">
-                                {formatCurrency(stats.balance)}
+                                {formatValue(stats.balance, formatCurrency)}
                             </span>
                             <div className="h-8 w-px bg-white/20 mx-2"></div>
                             <div className="flex flex-col">
@@ -714,7 +716,7 @@ const Dashboard = () => {
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <span className="text-lg lg:text-xl font-bold text-white">
-                                        {formatCurrency(stats.predictedTotalCosts)}
+                                        {formatValue(stats.predictedTotalCosts, formatCurrency)}
                                     </span>
                                     <div className="flex items-center gap-1">
                                         <span className={`text-xs font-black ${stats.predictedDiff > 0 ? 'text-red-400' : 'text-primary'}`}>
@@ -817,7 +819,7 @@ const Dashboard = () => {
                                             </div>
                                             
                                             <div className="flex flex-col items-end shrink-0">
-                                                <p className={`text-xl font-black text-content tracking-tighter leading-none ${bill.circleStatus === 'paid' ? 'opacity-40' : ''}`}>{formatCurrency(bill.amount)}</p>
+                                                <p className={`text-xl font-black text-content tracking-tighter leading-none ${bill.circleStatus === 'paid' ? 'opacity-40' : ''}`}>{formatValue(bill.amount, formatCurrency)}</p>
                                                 <div className="mt-2 text-right">
                                                     <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                                                         bill.circleStatus === 'urgent' || bill.circleStatus === 'overdue' ? 'bg-red-500 text-white animate-pulse' : 

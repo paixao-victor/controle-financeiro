@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1FRauUFLJMWgdH9CvXitjaLbNcQwFqANvp2K91EiZOazSk93PWo1q6QhniNYb1yyVtw/exec';
+const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
 export async function postToScript(action: string, payload: any) {
     try {

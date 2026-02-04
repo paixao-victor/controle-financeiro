@@ -427,7 +427,7 @@ const AccountsPayable: React.FC = () => {
 
                     {/* Fluxo de Caixa / Lego Chart */}
                     <div className="md:col-span-8 p-5 md:p-6 bg-white dark:bg-black/20 rounded-3xl shadow-neu border border-white/10 flex flex-col relative">
-                        <div className="flex justify-between items-center mb-6 relative">
+                        <div className="flex justify-between items-center mb-0 relative">
                             <div>
                                 <h3 className="text-base md:text-lg font-bold text-content">Fluxo de Caixa</h3>
                                 <p className="text-[10px] md:text-xs text-dim">Previsão e Histórico</p>
@@ -473,7 +473,7 @@ const AccountsPayable: React.FC = () => {
                             ref={scrollRef}
                             className="flex-1 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing pb-2 snap-x snap-mandatory px-2"
                         >
-                            <div className="flex items-end justify-start gap-1 min-w-max h-full min-h-[350px] pb-4 relative">
+                            <div className="flex items-end justify-start gap-1 min-w-max h-full min-h-[120px] pb-1 relative">
                                 {/* Grid Lines */}
                                 <div className="absolute inset-x-0 inset-y-0 flex flex-col justify-between pointer-events-none py-1 opacity-25">
                                     <div className="w-full h-px border-b border-dashed border-content/50"></div>
@@ -504,7 +504,7 @@ const AccountsPayable: React.FC = () => {
                                             }}
                                             onMouseEnter={() => setActiveBarIndex(i)}
                                             onMouseLeave={() => setActiveBarIndex(null)}
-                                            className="flex flex-col items-center w-[calc((100vw-30px)/10)] md:w-[calc((100%-40px)/20)] z-10 h-full justify-end relative group shrink-0 snap-center transition-opacity">
+                                            className="flex flex-col items-center w-[calc((100vw-30px)/7)] md:w-[calc((100%-40px)/18)] z-10 h-full justify-end relative group shrink-0 snap-center transition-opacity">
                                             
                                             {/* Tooltip removido daqui - será renderizado em camada separada */}
 
@@ -624,7 +624,7 @@ const AccountsPayable: React.FC = () => {
                                                     exit={{ opacity: 0, scale: 0.8 }}
                                                     style={{ 
                                                         left: `${leftPosition}%`,
-                                                        bottom: `${(highestBlockCount * 30) +18 }px`
+                                                        bottom: `${(highestBlockCount * 10) +18 }px`
                                                     }}
                                                     className="absolute -translate-x-1/2 whitespace-nowrap pointer-events-none"
                                                 >

@@ -4,6 +4,7 @@ import { TransactionsProvider, useTransactions } from '@/contexts/TransactionsCo
 import { NotificationsProvider, useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
 import Dashboard from '@/components/Dashboard';
 import TransactionsList from '@/components/TransactionsList';
 import DataManagement from '@/components/DataManagement';
@@ -93,6 +94,7 @@ function AppContent() {
   const { isEditMode, setIsEditMode } = useTransactions();
   const { unreadCount } = useNotifications();
   const { logout, user, updateUser } = useAuth();
+  const { isPrivacyMode, setIsPrivacyMode } = useSettings();
   const { isSyncing } = useTransactions();
   const [activeTab, setActiveTab] = useState<typeof TABS[keyof typeof TABS]>(TABS.DASHBOARD);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -504,6 +506,13 @@ function AppContent() {
             <button onClick={() => setMobileMenuOpen(true)} className={`size-10 flex items-center justify-center ${activeTab === TABS.DASHBOARD ? 'text-white' : 'text-content'}`}>
               <span className="material-symbols-outlined">menu</span>
             </button>
+            <button 
+              onClick={() => setIsPrivacyMode(!isPrivacyMode)} 
+              className={`size-10 flex items-center justify-center transition-colors ${activeTab === TABS.DASHBOARD ? 'text-white' : 'text-content'}`}
+              title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
+            >
+              <span className="material-symbols-outlined">{isPrivacyMode ? 'visibility_off' : 'visibility'}</span>
+            </button>
             {activeTab === TABS.EXTRATO && (
               <button 
                 onClick={() => setIsEditMode(!isEditMode)} 
@@ -627,6 +636,13 @@ function AppContent() {
         `}>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold leading-tight">{activeTab}</h2>
+              <button 
+                onClick={() => setIsPrivacyMode(!isPrivacyMode)} 
+                className={`ml-2 size-10 flex items-center justify-center transition-colors rounded-full ${isPrivacyMode ? 'bg-primary/20 text-primary' : 'text-content/60 hover:text-content hover:bg-content/10'}`}
+                title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
+              >
+                <span className="material-symbols-outlined">{isPrivacyMode ? 'visibility_off' : 'visibility'}</span>
+              </button>
               {activeTab === TABS.EXTRATO && (
                 <button 
                   onClick={() => setIsEditMode(!isEditMode)} 
@@ -888,11 +904,13 @@ function AuthGate() {
   }
 
   return (
-    <TransactionsProvider>
-      <NotificationsProvider>
-        <AppContent />
-      </NotificationsProvider>
-    </TransactionsProvider>
+    <SettingsProvider>
+      <TransactionsProvider>
+        <NotificationsProvider>
+          <AppContent />
+        </NotificationsProvider>
+      </TransactionsProvider>
+    </SettingsProvider>
   );
 }
 
