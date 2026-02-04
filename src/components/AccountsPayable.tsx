@@ -466,11 +466,9 @@ const AccountsPayable: React.FC = () => {
                                 </div>
 
                                 {stats.chartData.map((data: any, i: number) => {
-                                    
-                                    // AJUSTE MANUAL DE ESPAÇAMENTO ENTRE BARRAS / ITENS:
-                                    // O valor divisor (7 ou 10 abaixo) controla a proximidade das barras.
-                                    // Aumentar o divisor aproxima as barras.
-                                    // O 'gap-[2px]' no contêiner interno também afeta o visual.
+                                    const isShowing = activeBarIndex === i || (persistentBarIndex?.index === i);
+                                    const highestBlockCount = Math.max(data.blocksIncome, data.blocksIncomeProjected, data.blocksIncomeRealized, data.blocksExpense, data.blocksExpenseProjected, data.blocksExpenseRealized);
+
                                     return (
                                         <div 
                                             key={i} 
@@ -481,11 +479,66 @@ const AccountsPayable: React.FC = () => {
                                             }}
                                             onMouseEnter={() => setActiveBarIndex(i)}
                                             onMouseLeave={() => setActiveBarIndex(null)}
-                                            className="flex flex-col items-center w-[calc((100vw-30px)/7)] md:w-[calc((100%-40px)/18)] z-10 h-full justify-end relative group shrink-0 snap-center transition-opacity">
+                                            className={`flex flex-col items-center w-[calc((100vw-30px)/7)] md:w-[calc((100%-40px)/18)] h-full justify-end relative group shrink-0 snap-center transition-opacity ${isShowing ? 'z-[600]' : 'z-10'}`}>
                                             
-                                            {/* Tooltip removido daqui - será renderizado em camada separada */}
+                                            <AnimatePresence>
+                                                {isShowing && (
+                                                    <motion.div 
+                                                        initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.8 }}
+                                                        style={{ 
+                                                            bottom: `${(highestBlockCount * 3) + 50}px`,
+                                                        }}
+                                                        className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none z-50"
+                                                    >
+                                                        <div className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 p-2 rounded-2xl shadow-2xl border border-white/10 dark:border-black/5 flex flex-col items-center gap-2 min-w-[160px]">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{data.label}</span>
+                                                            
+                                                            <div className="w-full space-y-2">
+                                                                {/* Income Section */}
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                                                        <span className="opacity-60 uppercase tracking-tighter">Receitas</span>
+                                                                        <span className="text-primary">{formatCurrency(data.income, currentCurrency)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
+                                                                        <span className="text-primary italic">Realizado</span>
+                                                                        <span>{formatCurrency(data.incomeRealized, currentCurrency)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
+                                                                        <span className="text-blue-500 italic">Previsto</span>
+                                                                        <span>{formatCurrency(data.incomeProjected, currentCurrency)}</span>
+                                                                    </div>
+                                                                </div>
 
-                                            <div className="flex gap-[1px] items-end h-full pt-10">
+                                                                <div className="h-px bg-white/10 dark:bg-black/10 w-full"></div>
+
+                                                                {/* Expense Section */}
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                                                        <span className="opacity-60 uppercase tracking-tighter">Despesas</span>
+                                                                        <span className="text-red-500">{formatCurrency(data.expense, currentCurrency)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
+                                                                        <span className="text-red-500 italic">Pago</span>
+                                                                        <span>{formatCurrency(data.expenseRealized, currentCurrency)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
+                                                                        <span className="text-orange-500 italic">A Pagar</span>
+                                                                        <span>{formatCurrency(data.expenseProjected, currentCurrency)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Triangle Pointer */}
+                                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 dark:bg-white rotate-45"></div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            <div className="flex gap-px items-end h-full pt-10">
                                                 {/* Income Bar */}
                                                 <div className="flex flex-col-reverse gap-[3px] items-center">
                                                     {Array.from({ length: 7 }, (_, idx) => {
@@ -583,79 +636,9 @@ const AccountsPayable: React.FC = () => {
                                     </div>
                                 );
                             })}
-                            
-                            {/* Tooltip Layer - Always on top */}
-                            <div className="absolute inset-0 pointer-events-none z-[500]">
-                                {stats.chartData.map((data: any, i: number) => {
-                                    const isShowing = activeBarIndex === i || (persistentBarIndex?.index === i);
-                                    const highestBlockCount = Math.max(data.blocksIncome, data.blocksIncomeProjected, data.blocksIncomeRealized, data.blocksExpense, data.blocksExpenseProjected, data.blocksExpenseRealized);
-                                    const barWidth = 100 / stats.chartData.length;
-                                    const leftPosition = (i + 0.51) * barWidth;
-
-                                    return (
-                                        <AnimatePresence key={`tooltip-${i}`}>
-                                            {isShowing && (
-                                                <motion.div 
-                                                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, scale: 0.8 }}
-                                                    style={{ 
-                                                        left: `${leftPosition}%`,
-                                                        bottom: `${(highestBlockCount * 10) +18 }px`
-                                                    }}
-                                                    className="absolute -translate-x-1/2 whitespace-nowrap pointer-events-none"
-                                                >
-                                                    <div className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 p-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/5 flex flex-col items-center gap-2 min-w-[160px]">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{data.label}</span>
-                                                        
-                                                        <div className="w-full space-y-2">
-                                                            {/* Income Section */}
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <div className="flex justify-between items-center text-[10px] font-bold">
-                                                                    <span className="opacity-60 uppercase tracking-tighter">Receitas</span>
-                                                                    <span className="text-primary">{formatCurrency(data.income, currentCurrency)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
-                                                                    <span className="text-primary italic">Realizado</span>
-                                                                    <span>{formatCurrency(data.incomeRealized, currentCurrency)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
-                                                                    <span className="text-blue-500 italic">Previsto</span>
-                                                                    <span>{formatCurrency(data.incomeProjected, currentCurrency)}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="h-px bg-white/10 dark:bg-black/10 w-full"></div>
-
-                                                            {/* Expense Section */}
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <div className="flex justify-between items-center text-[10px] font-bold">
-                                                                    <span className="opacity-60 uppercase tracking-tighter">Despesas</span>
-                                                                    <span className="text-red-500">{formatCurrency(data.expense, currentCurrency)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
-                                                                    <span className="text-red-500 italic">Pago</span>
-                                                                    <span>{formatCurrency(data.expenseRealized, currentCurrency)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-[8px] font-medium opacity-80">
-                                                                    <span className="text-orange-500 italic">A Pagar</span>
-                                                                    <span>{formatCurrency(data.expenseProjected, currentCurrency)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Triangle Pointer */}
-                                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 dark:bg-white rotate-45"></div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    );
-                                })}
-                            </div>
-                        </div>
                         </div>
                     </div>
+                </div>
                 </div>
 
                 {/* Card de Receitas Previstas - NOVO */}
