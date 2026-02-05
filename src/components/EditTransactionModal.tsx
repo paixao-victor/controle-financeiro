@@ -231,7 +231,12 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
                                                 onClose={() => setIsSubcategorySheetOpen(false)}
                                                 title="Selecionar Subcategoria"
                                                 selectedValue={subcategory}
-                                                options={availableSubcategories.map(sub => ({ id: sub, label: sub, icon: 'subdirectory_arrow_right' }))}
+                                                options={availableSubcategories.map(sub => {
+                                                    if (typeof sub === 'string') {
+                                                        return { id: sub, label: sub, icon: 'subdirectory_arrow_right' };
+                                                    }
+                                                    return { id: sub.label, label: sub.label, icon: sub.icon };
+                                                })}
                                                 onSelect={(opt) => setSubcategory(opt.label)}
                                             />
                                         </div>

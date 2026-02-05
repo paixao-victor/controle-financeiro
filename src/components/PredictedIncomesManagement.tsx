@@ -586,7 +586,11 @@ const PredictedIncomesManagement: React.FC<{ onBack: () => void }> = ({ onBack }
                 onClose={() => setIsSubcategorySheetOpen(false)}
                 title="Selecionar Subcategoria"
                 selectedValue={newIncome.subcategory}
-                options={availableSubcategories.map((sub, idx) => ({ id: idx, label: sub, icon: 'subdirectory_arrow_right' }))}
+                options={availableSubcategories.map((sub, idx) => ({ 
+                    id: idx, 
+                    label: typeof sub === 'string' ? sub : sub.label, 
+                    icon: typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon 
+                }))}
                 onSelect={(opt: any) => setNewIncome({ ...newIncome, subcategory: opt.label })}
             />
             

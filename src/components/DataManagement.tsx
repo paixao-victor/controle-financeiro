@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { exportCSV, exportJSON } from '@/utils/csvHandler';
@@ -53,14 +54,6 @@ const DataManagement: React.FC = () => {
     (dataSize / (5 * 1024 * 1024)) * 100
   ).toFixed(1);
 
-  const handleExportConfig = () => {
-    const configData = {
-      categories: availableCategories,
-      accounts: accounts,
-      cards: cards
-    };
-    exportJSON(configData, 'fincontrol_config');
-  };
 
   const handleFullBackup = () => {
     const backupData = {

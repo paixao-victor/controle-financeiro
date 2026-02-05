@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import type { CategoryItem, SubcategoryItem } from '@/contexts/TransactionsContext';
+import type { CategoryItem } from '@/contexts/TransactionsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomSheetIconSelector from './BottomSheetIconSelector';
 

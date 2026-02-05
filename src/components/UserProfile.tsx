@@ -331,7 +331,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                     </motion.button>
                     
                     <button 
-                        onClick={(e) => {
+                        onClick={() => {
                             setShowMainPhotoOptions(!showMainPhotoOptions);
                         }}
                         className="absolute bottom-1 right-1 size-10 bg-surface rounded-full shadow-lg flex items-center justify-center text-primary border border-white/10 hover:scale-110 transition-transform z-[100]"

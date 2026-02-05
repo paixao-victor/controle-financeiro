@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import LiquidGauge from './components/LiquidGauge';
+
 import { TransactionsProvider, useTransactions } from '@/contexts/TransactionsContext';
 import { NotificationsProvider, useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,13 +16,13 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import Modal from '@/components/Modal';
 import UserProfile from '@/components/UserProfile';
 import Settings from '@/components/Settings';
-import AccountsManagement from '@/components/AccountsManagement';
+
 import NotificationPanel from '@/components/NotificationPanel';
 import NotificationsCenter from '@/components/NotificationsCenter';
 import LoginScreen from '@/components/auth/LoginScreen';
 import RegisterScreen from '@/components/auth/RegisterScreen';
 import SplashScreen from '@/components/SplashScreen';
-import LoadingOverlay from '@/components/LoadingOverlay';
+
 
 // Definição de Abas
 const TABS = {
@@ -112,7 +112,7 @@ function AppContent() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [addTransactionInitialData, setAddTransactionInitialData] = useState<any>(null);
   const [showSplash, setShowSplash] = useState(true);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
 
   // Splash Screen Timer
   useEffect(() => {
@@ -243,7 +243,6 @@ function AppContent() {
   };
 
     const isSubPage = [TABS.IMPORT, TABS.CONFIG].includes(activeTab as any);
-    const showBackButton = isSubPage || (activeTab === TABS.CONFIG && false); 
 
   const handleBack = () => {
     if (activeTab === TABS.IMPORT || activeTab === TABS.CONFIG) {
@@ -383,7 +382,7 @@ function AppContent() {
            <button
              onClick={(e) => {
                e.stopPropagation();
-               setShowLogoutConfirm(true);
+                 if (window.confirm('Tem certeza que deseja sair?')) logout();
              }}
              className="w-full flex items-center h-12 px-4 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors mt-2"
            >
@@ -547,7 +546,7 @@ function AppContent() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setShowLogoutConfirm(true);
+                if (window.confirm('Tem certeza que deseja sair?')) logout();
             }}
             className={`flex items-center h-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all mt-2 px-4`}
           >

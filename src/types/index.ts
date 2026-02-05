@@ -10,6 +10,7 @@ export interface User {
     photo?: string;
     currency: 'BRL' | 'USD' | 'EUR';
     createdAt: string;
+    password?: string;
 }
 
 export interface Card {
