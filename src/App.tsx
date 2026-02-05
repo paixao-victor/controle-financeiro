@@ -397,12 +397,12 @@ function AppContent() {
         </div>
       </motion.aside>
 
-      {/* Sidebar Desktop */}
+      {/* Sidebar Desktop (Flutuante/Overlay) */}
       <aside 
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={toggleSidebar}
-        className={`hidden md:flex flex-col glass-dock z-40 h-full  relative transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64' : 'w-20'} items-stretch`}
+        className={`hidden md:flex flex-col glass-dock z-[60] h-full fixed top-0 left-0 transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64 shadow-2xl' : 'w-20'} items-stretch border-r border-white/5`}
       >
         <div className={`mb-8 flex items-center px-4 justify-between gap-3 relative h-12`}>
           <div 
@@ -561,8 +561,21 @@ function AppContent() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden">
+      {/* Backdrop para fechar sidebar ao clicar fora (quando expandida) */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarCollapsed(true)}
+            className="hidden md:block fixed inset-0 bg-black/5 backdrop-blur-[1px] z-50 transition-opacity"
+          />
+        )}
+      </AnimatePresence>
+ 
+       {/* Main Content */}
+       <div className={`flex-1 flex flex-col h-full bg-background relative overflow-hidden transition-all duration-300 md:pl-20`}>
         
         {/* Render Notification Panel */}
         <AnimatePresence>
