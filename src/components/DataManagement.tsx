@@ -190,262 +190,186 @@ const DataManagement: React.FC = () => {
     (availableCategories.expense?.length || 0);
 
   return (
-    <div className="h-full flex flex-col animate-fade-up">
-      <div className="max-w-md mx-auto w-full flex-1 flex flex-col">
-
-      {/* Cabeçalho */}
-      <p className="px-6 text-dim text-base font-medium leading-normal pt-2">
-        Controle total sobre suas informações financeiras e portabilidade.
-      </p>
-
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-8 px-6">
-        {/* Indicador de Armazenamento */}
-        <div className="py-6">
-          <div className="rounded-2xl bg-surface shadow-lg p-6 transition-all border border-gray-100 dark:border-white/5 nm-card">
-            <div className="flex justify-between items-end mb-3">
-              <div>
-                <p className="text-[10px] font-black text-dim uppercase tracking-wider mb-1">
-                  Armazenamento Local
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-content">
-                    {usedMB}
-                  </span>
-                  <span className="text-sm font-semibold text-dim">MB usados</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined text-3xl">
-                  database
-                </span>
-              </div>
-            </div>
-
-            {/* Barra de Progresso */}
-            <div className="w-full bg-[#1f2b1c] rounded-full h-3 shadow-inner overflow-hidden relative">
-              <div
-                className="bg-primary h-3 rounded-full shadow-[0_0_10px_rgba(71,244,37,0.5)] transition-all duration-1000"
-                style={{ width: `${Math.max(1, Number(usagePercent))}%` }}
-              />
-            </div>
-            <div className="mt-2 text-[10px] text-dim font-black text-right uppercase tracking-[0.05em]">
-              {usagePercent}% da cota (estimado)
-            </div>
-          </div>
+    <div className="flex flex-col gap-8 animate-fade-up max-w-4xl mx-auto w-full pb-20 px-4 lg:px-0">
+      {/* 1. Status de Armazenamento */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+            <span className="material-symbols-outlined text-primary">storage</span>
+            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Armazenamento</h3>
         </div>
+        <div className="nm-card p-6 space-y-4">
+            <div className="flex justify-between items-center">
+                <div>
+                    <p className="text-2xl font-black text-content">{usedMB} <span className="text-sm text-dim font-bold">MB</span></p>
+                    <p className="text-xs text-dim font-bold">Consumo local estimado</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-lg font-black text-primary">{usagePercent}%</p>
+                    <p className="text-[10px] text-dim font-black uppercase tracking-widest">Da cota</p>
+                </div>
+            </div>
+            <div className="w-full bg-content/5 rounded-full h-3 overflow-hidden shadow-inner">
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${usagePercent}%` }}
+                    className="h-full bg-primary shadow-glow"
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                />
+            </div>
+        </div>
+      </section>
 
-        {/* Ações principais */}
-        <div className="grid grid-cols-2 gap-5 mb-6 text-left">
-          {/* Exportar CSV */}
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-2xl bg-surface nm-card p-6 transition-all active:scale-[0.98] border border-gray-100 dark:border-white/5 hover:border-primary/20 text-left"
-          >
-            <div className="flex items-center justify-center size-14 rounded-full bg-white/5 text-primary group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-[28px]">
-                ios_share
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="text-content text-lg font-black leading-tight">
-                Exportar
-              </p>
-              <p className="text-dim text-xs font-bold mt-1">
-                CSV (período ou completo)
-              </p>
-            </div>
-          </button>
+      {/* 2. Importação e Exportação */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+            <span className="material-symbols-outlined text-primary">import_export</span>
+            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Arquivos Externos</h3>
+        </div>
+        <div className="nm-card p-2 grid grid-cols-1 md:grid-cols-2 gap-1">
+            <button 
+                onClick={() => setShowImport(!showImport)}
+                className={`flex items-center justify-between p-4 rounded-2xl transition-all group ${showImport ? 'bg-primary/10 border-primary/20' : 'hover:bg-content/5'}`}
+            >
+                <div className="flex items-center gap-4">
+                    <div className="size-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined">download</span>
+                    </div>
+                    <div className="text-left">
+                        <p className="font-black text-content text-sm">Importar CSV</p>
+                        <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Adicionar transações</p>
+                    </div>
+                </div>
+                {showImport ? <span className="material-symbols-outlined text-primary">expand_less</span> : <span className="material-symbols-outlined text-dim">expand_more</span>}
+            </button>
 
-          {/* Importar CSV */}
-          <button
-            onClick={() => setShowImport(!showImport)}
-            className={`group relative flex flex-col items-center justify-center gap-4 rounded-2xl bg-surface nm-card p-6 transition-all active:scale-[0.98] border border-gray-100 dark:border-white/5 ${
-              showImport ? 'ring-2 ring-primary border-transparent' : ''
-            }`}
-          >
-            <div className="flex items-center justify-center size-14 rounded-full bg-gray-200 dark:bg-white/5 text-gray-900 dark:text-content group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-[28px]">
-                download
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="text-content text-lg font-black leading-tight">
-                Importar
-              </p>
-              <p className="text-dim text-xs font-bold mt-1">Inserir CSV</p>
-            </div>
-          </button>
-
-          {/* Exportar Configurações */}
-          <button
-            onClick={handleExportConfig}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-2xl bg-surface nm-card p-6 transition-all active:scale-[0.98] border border-gray-100 dark:border-white/5 hover:border-primary/20 text-left"
-          >
-            <div className="flex items-center justify-center size-14 rounded-full bg-white/5 text-primary group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-[28px]">
-                settings
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="text-content text-lg font-black leading-tight">
-                Configurações
-              </p>
-              <p className="text-dim text-xs font-bold mt-1">
-                Cats, Contas, Cartões
-              </p>
-            </div>
-          </button>
-
-          {/* Backup Completo */}
-          <button
-            onClick={handleFullBackup}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-2xl bg-surface nm-card p-6 transition-all active:scale-[0.98] border border-gray-100 dark:border-white/5 hover:border-primary/20 text-left"
-          >
-            <div className="flex items-center justify-center size-14 rounded-full bg-white/5 text-emerald-500 group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-[28px]">
-                backup
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="text-content text-lg font-black leading-tight">
-                Full Backup
-              </p>
-              <p className="text-dim text-xs font-bold mt-1">
-                Tudo (JSON)
-              </p>
-            </div>
-          </button>
-
-          {/* Restaurar Backup */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-2xl bg-surface nm-card p-6 transition-all active:scale-[0.98] border border-gray-100 dark:border-white/5 hover:border-primary/20 text-left"
-          >
-            <div className="flex items-center justify-center size-14 rounded-full bg-white/5 text-blue-500 group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-[28px]">
-                settings_backup_restore
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="text-content text-lg font-black leading-tight">
-                Restaurar
-              </p>
-              <p className="text-dim text-xs font-bold mt-1">
-                Substituir dados
-              </p>
-            </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".json" 
-              onChange={handleRestoreBackup}
-            />
-          </button>
+            <button 
+                onClick={() => setIsExportModalOpen(true)}
+                className="flex items-center justify-between p-4 hover:bg-content/5 rounded-2xl transition-all group text-left"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="size-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined">ios_share</span>
+                    </div>
+                    <div>
+                        <p className="font-black text-content text-sm">Exportar Dados</p>
+                        <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Planilhas e CSV</p>
+                    </div>
+                </div>
+                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
+            </button>
         </div>
 
         {showImport && (
-          <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="mt-4 animate-in slide-in-from-top-4 fade-in duration-300">
             <ImportTransaction />
           </div>
         )}
+      </section>
 
-        {/* Card de Sincronização com Google Sheets */}
-        <div className="mb-6">
-          <div className="rounded-2xl bg-surface nm-card p-6 border border-gray-100 dark:border-white/5 flex flex-col gap-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-[10px] font-black text-dim uppercase tracking-wider mb-1">
-                  Sincronização com Google Sheets
-                </p>
-                <p className="text-sm text-dim leading-snug">
-                  Envie seus dados para a planilha oficial (Transações, Contas,
-                  Categorias)
-                </p>
-              </div>
-              <div className="flex items-center justify-center size-12 rounded-full bg-primary/10 text-primary relative">
-                {isContextSyncing ? (
-                    <span className="material-symbols-outlined text-[24px] animate-spin">progress_activity</span>
-                ) : (
-                    <span className="material-symbols-outlined text-[24px]">sync</span>
-                )}
-              </div>
+      {/* 3. Backup e Nuvem */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+            <span className="material-symbols-outlined text-primary">cloud</span>
+            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Backup & Cloud</h3>
+        </div>
+        <div className="nm-card p-4 space-y-4">
+            <div className="flex items-center justify-between bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                <div className="flex items-center gap-4">
+                    <div className="size-12 bg-primary/20 rounded-full flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined">backup</span>
+                    </div>
+                    <div>
+                        <p className="font-black text-content text-sm">Google Sheets</p>
+                        {lastSync ? (
+                            <p className="text-[10px] text-primary font-black uppercase tracking-widest">Sinc. em {lastSync.toLocaleTimeString('pt-BR')}</p>
+                        ) : (
+                            <p className="text-[10px] text-dim font-black uppercase tracking-widest">Nunca sincronizado</p>
+                        )}
+                    </div>
+                </div>
+                <button 
+                    onClick={() => setIsSyncModalOpen(true)}
+                    disabled={isContextSyncing}
+                    className="px-4 py-2 bg-primary text-secondary rounded-xl font-black text-[10px] uppercase tracking-widest shadow-glow active:scale-95 transition-all"
+                >
+                    {isContextSyncing ? 'Agurade...' : 'Sincronizar'}
+                </button>
             </div>
 
-            {lastSync && (
-                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">
-                    Última atualização: {lastSync.toLocaleTimeString('pt-BR')}
-                </p>
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                    onClick={handleFullBackup}
+                    className="flex items-center gap-4 p-4 hover:bg-content/5 rounded-2xl transition-all group text-left"
+                >
+                    <div className="size-10 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-500">
+                        <span className="material-symbols-outlined">file_download</span>
+                    </div>
+                    <div>
+                        <p className="font-black text-content text-xs">Criar Backup</p>
+                        <p className="text-[9px] text-dim font-bold uppercase tracking-widest">Arquivo .JSON</p>
+                    </div>
+                </button>
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-4 p-4 hover:bg-content/5 rounded-2xl transition-all group text-left"
+                >
+                    <div className="size-10 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-500">
+                        <span className="material-symbols-outlined">settings_backup_restore</span>
+                    </div>
+                    <div>
+                        <p className="font-black text-content text-xs">Restaurar Backup</p>
+                        <p className="text-[9px] text-dim font-bold uppercase tracking-widest">Recuperar dados</p>
+                    </div>
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleRestoreBackup} />
+                </button>
+            </div>
+        </div>
+      </section>
 
-            <ul className="text-[11px] text-dim space-y-1">
-              <li>
-                • <strong>{totalTransactions}</strong> transações
-              </li>
-              <li>
-                • <strong>{totalAccounts}</strong> contas
-              </li>
-              <li>
-                • <strong>{totalCategories}</strong> categorias
-              </li>
-            </ul>
-
-            <button
-              onClick={() => setIsSyncModalOpen(true)}
-              disabled={isContextSyncing}
-              className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-secondary text-[11px] font-black uppercase tracking-[0.2em] py-3 px-4 hover:brightness-110 active:scale-[0.97] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+      {/* 4. Manutenção de Sistema */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+            <span className="material-symbols-outlined text-red-500">engineering</span>
+            <h3 className="text-sm font-black uppercase tracking-widest text-red-500/60">Manutenção</h3>
+        </div>
+        <div className="nm-card p-2 space-y-1">
+            <button 
+                onClick={handleRemoveDuplicates}
+                className="w-full flex items-center justify-between p-4 hover:bg-orange-500/5 rounded-2xl transition-all group"
             >
-              <span className="material-symbols-outlined text-[16px]">
-                cloud_upload
-              </span>
-              {isContextSyncing ? 'Sincronizando...' : 'Sincronizar Banco de Dados'}
+                <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-orange-500">cleaning_services</span>
+                    <span className="text-sm font-bold text-content">Remover Transações Duplicadas</span>
+                </div>
+                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
             </button>
-
-            {user?.username && (
-              <button
+            <button 
                 onClick={() => setIsCleanOrphanModalOpen(true)}
-                disabled={isCleaningOrphans}
-                className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/30 text-[11px] font-black uppercase tracking-[0.2em] py-3 px-4 hover:bg-orange-500/20 active:scale-[0.97] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <span className="material-symbols-outlined text-[16px]">
-                  cleaning_services
-                </span>
-                {isCleaningOrphans ? 'Limpando...' : 'Limpar Dados Órfãos'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Footer - Zona perigosa */}
-        <div className="mt-8 px-4 py-8 text-center border-t border-white/5">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-dim text-sm">
-              lock
-            </span>
-            <p className="text-dim text-[10px] font-black uppercase tracking-widest">
-              Segurança de Dados
-            </p>
-          </div>
-          <p className="text-dim/70 text-[11px] font-bold leading-relaxed max-w-[280px] mx-auto">
-            Seus dados ficam salvos localmente. Use exportação ou sincronização para
-            backup.
-          </p>
-
-          <div className="flex flex-col gap-2 mt-8">
-            <button
-              onClick={() => setIsDuplicatesModalOpen(true)}
-              className="text-[10px] text-primary/70 hover:text-primary font-black uppercase tracking-widest py-3 px-4 rounded-xl hover:bg-primary/10 transition-colors border border-primary/20"
+                className="w-full flex items-center justify-between p-4 hover:bg-orange-500/5 rounded-2xl transition-all group"
             >
-              Remover duplicatas
+                <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-orange-500">mystery_beam</span>
+                    <span className="text-sm font-bold text-content">Limpar Dados Órfãos (Cloud)</span>
+                </div>
+                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
             </button>
-            <button
-              onClick={() => setIsClearModalOpen(true)}
-              className="text-[10px] text-red-500 hover:text-red-400 font-black uppercase tracking-widest py-3 px-4 rounded-xl hover:bg-red-500/10 transition-colors border border-red-500/20"
+            <button 
+                onClick={() => setIsClearModalOpen(true)}
+                className="w-full flex items-center justify-between p-4 hover:bg-red-500/5 rounded-2xl transition-all group"
             >
-              Apagar todos os dados
+                <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-red-500">delete_forever</span>
+                    <span className="text-sm font-bold text-red-500">Apagar Todos os Dados</span>
+                </div>
+                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
             </button>
-          </div>
         </div>
+      </section>
+
+      <div className="pt-4 text-center">
+        <p className="text-[10px] text-dim font-bold leading-relaxed max-w-sm mx-auto opacity-40">
+            Seus dados são privados e ficam salvos em seu navegador. Recomendamos a realização de backups periódicos.
+        </p>
       </div>
 
       {/* Modals outside of animated container to avoid fixed position issues */}
@@ -765,8 +689,6 @@ const DataManagement: React.FC = () => {
         </div>
       )}
     </div>
-    </div>
-
   );
 };
 

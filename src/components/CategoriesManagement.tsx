@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import type { CategoryItem } from '@/contexts/TransactionsContext';
+import type { CategoryItem, SubcategoryItem } from '@/contexts/TransactionsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomSheetIconSelector from './BottomSheetIconSelector';
 
@@ -22,7 +22,9 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     
     // Icon Selector State
     const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
-    const [iconSelectorTarget, setIconSelectorTarget] = useState<'new' | 'edit' | null>(null);
+    const [iconSelectorTarget, setIconSelectorTarget] = useState<'new' | 'edit' | 'sub' | null>(null);
+    const [selectedSubForIcon, setSelectedSubForIcon] = useState<string | null>(null);
+    const [newSubcatIcon, setNewSubcatIcon] = useState('subdirectory_arrow_right');
     
     const CATEGORY_COLORS = [
         '#47f425', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899',
@@ -57,43 +59,55 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             updateCategory(activeTab, editingCategory.id, updates);
             setEditingCategory(null);
+            setNewSubcatName('');
+            setNewSubcatIcon('subdirectory_arrow_right');
         }
     };
 
     const handleAddSubcategoryInModal = () => {
         if (editingCategory && newSubcatName.trim()) {
-            addSubcategory(activeTab, editingCategory.id, newSubcatName.trim());
+            const subName = newSubcatName.trim();
+            addSubcategory(activeTab, editingCategory.id, `${subName}:${newSubcatIcon}`);
             setNewSubcatName('');
+            setNewSubcatIcon('subdirectory_arrow_right');
             setEditingCategory(prev => prev ? ({
                 ...prev,
-                subcategories: [...(prev.subcategories || []), newSubcatName.trim()]
+                subcategories: [...(prev.subcategories || []), { label: subName, icon: newSubcatIcon }]
             }) : null);
         }
     };
 
-    const handleDeleteSubcategoryInModal = (sub: string) => {
+    const handleDeleteSubcategoryInModal = (sub: string | { label: string, icon: string }) => {
         if (editingCategory) {
-            deleteSubcategory(activeTab, editingCategory.id, sub);
+            const subLabel = typeof sub === 'string' ? sub : sub.label;
+            deleteSubcategory(activeTab, editingCategory.id, subLabel);
             setEditingCategory(prev => prev ? ({
                 ...prev,
-                subcategories: prev.subcategories?.filter(s => s !== sub)
+                subcategories: (prev.subcategories || []).filter(s => (typeof s === 'string' ? s : s.label) !== subLabel)
             }) : null);
         }
     };
 
-    const handleStartRenameSubcat = (sub: string) => {
-        setEditingSubcat(sub);
-        setEditingSubcatValue(sub);
+    const handleStartRenameSubcat = (sub: string | { label: string, icon: string }) => {
+        const subLabel = typeof sub === 'string' ? sub : sub.label;
+        setEditingSubcat(subLabel);
+        setEditingSubcatValue(subLabel);
     };
 
-    const handleSaveRenameSubcat = (oldSub: string) => {
-        if (editingCategory && editingSubcatValue.trim() && editingSubcatValue !== oldSub) {
-            renameSubcategory(activeTab, editingCategory.id, oldSub, editingSubcatValue.trim());
+    const handleSaveRenameSubcat = (oldSub: string | { label: string, icon: string }) => {
+        const oldSubLabel = typeof oldSub === 'string' ? oldSub : oldSub.label;
+        const subIcon = typeof oldSub === 'string' ? 'subdirectory_arrow_right' : oldSub.icon;
+        
+        if (editingCategory && editingSubcatValue.trim() && editingSubcatValue !== oldSubLabel) {
+            renameSubcategory(activeTab, editingCategory.id, oldSub, `${editingSubcatValue.trim()}:${subIcon}`);
             
             // Local state update for UI responsiveness
             setEditingCategory(prev => prev ? ({
                 ...prev,
-                subcategories: (prev.subcategories || []).map(s => s === oldSub ? editingSubcatValue.trim() : s)
+                subcategories: (prev.subcategories || []).map(s => {
+                    const sLabel = typeof s === 'string' ? s : s.label;
+                    return sLabel === oldSubLabel ? { label: editingSubcatValue.trim(), icon: subIcon } : s;
+                })
             }) : null);
         }
         setEditingSubcat(null);
@@ -124,8 +138,18 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const exportToCSV = () => {
         const headers = ['Tipo', 'Categoria', 'Ícone', 'Subcategorias'];
-        const rows = [...availableCategories.expense.map(c => ['Despesa', c.label, c.icon, (c.subcategories || []).join(' | ')]),
-                      ...availableCategories.income.map(c => ['Receita', c.label, c.icon, (c.subcategories || []).join(' | ')])];
+        const rows = [...availableCategories.expense.map(c => [
+            'Despesa', 
+            c.label, 
+            c.icon, 
+            (c.subcategories || []).map(s => typeof s === 'string' ? s : s.label).join(' | ')
+        ]),
+                      ...availableCategories.income.map(c => [
+            'Receita', 
+            c.label, 
+            c.icon, 
+            (c.subcategories || []).map(s => typeof s === 'string' ? s : s.label).join(' | ')
+        ])];
 
         const csvContent = [
             headers.join(','),
@@ -254,15 +278,19 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 >
                                     <div className="p-4 space-y-2">
                                         {cat.subcategories && cat.subcategories.length > 0 ? (
-                                            cat.subcategories.map(sub => (
-                                                <div 
-                                                    key={sub} 
-                                                    className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-800/50 rounded-xl border border-black/5 dark:border-white/5"
-                                                >
-                                                    <span className="material-symbols-outlined text-dim text-sm">subdirectory_arrow_right</span>
-                                                    <span className="text-sm font-medium text-content flex-1">{sub}</span>
-                                                </div>
-                                            ))
+                                            cat.subcategories.map((sub, idx) => {
+                                                const subLabel = typeof sub === 'string' ? sub : sub.label;
+                                                const subIcon = typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon;
+                                                return (
+                                                    <div 
+                                                        key={`${subLabel}-${idx}`} 
+                                                        className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-800/50 rounded-xl border border-black/5 dark:border-white/5"
+                                                    >
+                                                        <span className="material-symbols-outlined text-dim text-sm">{subIcon}</span>
+                                                        <span className="text-sm font-medium text-content flex-1">{subLabel}</span>
+                                                    </div>
+                                                );
+                                            })
                                         ) : (
                                             <p className="text-center text-xs text-dim py-2">Nenhuma subcategoria cadastrada</p>
                                         )}
@@ -380,6 +408,15 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     
                                     {/* Add Subcategory Input */}
                                     <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                setIconSelectorTarget('sub');
+                                                setIsIconSelectorOpen(true);
+                                            }}
+                                            className="size-10 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-center text-dim hover:text-primary transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined">{newSubcatIcon}</span>
+                                        </button>
                                         <input
                                             value={newSubcatName}
                                             onChange={e => setNewSubcatName(e.target.value)}
@@ -398,41 +435,58 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     {/* Subcategories List */}
                                     <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                         {editingCategory.subcategories && editingCategory.subcategories.length > 0 ? (
-                                            editingCategory.subcategories.map(sub => (
-                                                <div 
-                                                    key={sub} 
-                                                    className="flex items-center justify-between p-3 bg-surface dark:bg-zinc-800 rounded-xl border border-black/5 dark:border-white/5 group"
-                                                >
-                                                    {editingSubcat === sub ? (
-                                                        <input 
-                                                            autoFocus
-                                                            value={editingSubcatValue}
-                                                            onChange={e => setEditingSubcatValue(e.target.value)}
-                                                            onBlur={() => handleSaveRenameSubcat(sub)}
-                                                            onKeyDown={e => e.key === 'Enter' && handleSaveRenameSubcat(sub)}
-                                                            className="flex-1 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1 text-sm font-medium outline-none border border-primary/30"
-                                                        />
-                                                    ) : (
-                                                        <>
-                                                            <span className="text-sm font-medium text-content">{sub}</span>
-                                                            <div className="flex items-center gap-1">
-                                                                <button 
-                                                                    onClick={() => handleStartRenameSubcat(sub)}
-                                                                    className="size-8 rounded-lg text-dim hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-sm">edit</span>
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => handleDeleteSubcategoryInModal(sub)}
-                                                                    className="size-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-sm">delete</span>
-                                                                </button>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            ))
+                                            editingCategory.subcategories.map((sub, idx) => {
+                                                const subLabel = typeof sub === 'string' ? sub : sub.label;
+                                                const subIcon = typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon;
+                                                
+                                                return (
+                                                    <div 
+                                                        key={`${subLabel}-${idx}`} 
+                                                        className="flex items-center justify-between p-3 bg-surface dark:bg-zinc-800 rounded-xl border border-black/5 dark:border-white/5 group"
+                                                    >
+                                                        {editingSubcat === subLabel ? (
+                                                            <input 
+                                                                autoFocus
+                                                                value={editingSubcatValue}
+                                                                onChange={e => setEditingSubcatValue(e.target.value)}
+                                                                onBlur={() => handleSaveRenameSubcat(sub)}
+                                                                onKeyDown={e => e.key === 'Enter' && handleSaveRenameSubcat(sub)}
+                                                                className="flex-1 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1 text-sm font-medium outline-none border border-primary/30"
+                                                            />
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setSelectedSubForIcon(subLabel);
+                                                                            setIconSelectorTarget('sub');
+                                                                            setIsIconSelectorOpen(true);
+                                                                        }}
+                                                                        className="size-8 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center text-dim hover:text-primary transition-colors flex-shrink-0"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-base">{subIcon}</span>
+                                                                    </button>
+                                                                    <span className="text-sm font-medium text-content truncate">{subLabel}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <button 
+                                                                        onClick={() => handleStartRenameSubcat(sub)}
+                                                                        className="size-8 rounded-lg text-dim hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteSubcategoryInModal(sub)}
+                                                                        className="size-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         ) : (
                                             <p className="text-center text-xs text-dim py-4">Nenhuma subcategoria ainda</p>
                                         )}
@@ -540,10 +594,39 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 isOpen={isIconSelectorOpen}
                 onClose={() => setIsIconSelectorOpen(false)}
                 title="Selecionar Ícone"
-                selectedIcon={iconSelectorTarget === 'new' ? newCategoryIcon : (editingCategory?.icon || 'category')}
+                selectedIcon={
+                    iconSelectorTarget === 'new' 
+                        ? newCategoryIcon 
+                        : (iconSelectorTarget === 'sub' 
+                            ? (selectedSubForIcon 
+                                ? (typeof editingCategory?.subcategories.find(s => (typeof s === 'string' ? s : s.label) === selectedSubForIcon) === 'object' 
+                                    ? (editingCategory?.subcategories.find(s => (typeof s === 'string' ? s : s.label) === selectedSubForIcon) as any).icon 
+                                    : 'subdirectory_arrow_right')
+                                : newSubcatIcon)
+                            : (editingCategory?.icon || 'category'))
+                }
                 onSelect={(icon) => {
                     if (iconSelectorTarget === 'new') {
                         setNewCategoryIcon(icon);
+                    } else if (iconSelectorTarget === 'sub') {
+                        if (selectedSubForIcon && editingCategory) {
+                            // Update icon for existing subcategory
+                            const sub = editingCategory.subcategories.find(s => (typeof s === 'string' ? s : s.label) === selectedSubForIcon);
+                            if (sub) {
+                                const subLabel = typeof sub === 'string' ? sub : sub.label;
+                                renameSubcategory(activeTab, editingCategory.id, sub, `${subLabel}:${icon}`);
+                                setEditingCategory({
+                                    ...editingCategory,
+                                    subcategories: editingCategory.subcategories.map(s => 
+                                        (typeof s === 'string' ? s : s.label) === selectedSubForIcon ? { label: subLabel, icon } : s
+                                    )
+                                });
+                            }
+                            setSelectedSubForIcon(null);
+                        } else {
+                            // Setting icon for new subcategory to be added
+                            setNewSubcatIcon(icon);
+                        }
                     } else if (editingCategory) {
                         setEditingCategory({ ...editingCategory, icon });
                     }

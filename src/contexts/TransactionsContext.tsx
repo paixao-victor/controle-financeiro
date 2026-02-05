@@ -8,12 +8,17 @@ import { useAuth } from './AuthContext';
 
 export type TransactionType = 'income' | 'expense';
 
+export interface SubcategoryItem {
+    label: string;
+    icon: string;
+}
+
 export interface CategoryItem {
     id: string;
     label: string;
     icon: string;
     color?: string;
-    subcategories: string[];
+    subcategories: (string | SubcategoryItem)[];
 }
 
 export interface CategoryGroup {
@@ -63,7 +68,7 @@ interface TransactionsContextType {
     deleteCategory: (type: 'income' | 'expense', id: string) => void;
     addSubcategory: (type: 'income' | 'expense', categoryId: string, subcategory: string) => void;
     deleteSubcategory: (type: 'income' | 'expense', categoryId: string, subcategory: string) => void;
-    renameSubcategory: (type: 'income' | 'expense', categoryId: string, oldName: string, newName: string) => void;
+    renameSubcategory: (type: 'income' | 'expense', categoryId: string, oldName: string | SubcategoryItem, newName: string | SubcategoryItem) => void;
     currentCurrency: 'BRL' | 'USD';
     setCurrentCurrency: (currency: 'BRL' | 'USD') => void;
     isEditMode: boolean;
@@ -135,7 +140,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 label: cat.label,
                 icon: cat.icon,
                 color: cat.color,
-                subcategories: Array.isArray(cat.subcategories) ? cat.subcategories : (cat.subcategories ? cat.subcategories.split(';') : [])
+                subcategories: (Array.isArray(cat.subcategories) ? cat.subcategories : (cat.subcategories ? cat.subcategories.split(';') : [])).map((s: string) => {
+                    if (typeof s === 'string' && s.includes(':')) {
+                        const [label, icon] = s.split(':');
+                        return { label, icon };
+                    }
+                    return s;
+                })
             });
         });
 
@@ -201,8 +212,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // Flatten categories
             const cats = currentData?.categories || availableCategories;
             const categoriesToSync: any[] = [
-                ...cats.income.map((c: any) => ({ ...c, type: 'income' })),
-                ...cats.expense.map((c: any) => ({ ...c, type: 'expense' }))
+                ...cats.income.map((c: any) => ({ 
+                    ...c, 
+                    type: 'income',
+                    subcategories: (c.subcategories || []).map((s: any) => typeof s === 'string' ? s : `${s.label}:${s.icon}`).join(';')
+                })),
+                ...cats.expense.map((c: any) => ({ 
+                    ...c, 
+                    type: 'expense',
+                    subcategories: (c.subcategories || []).map((s: any) => typeof s === 'string' ? s : `${s.label}:${s.icon}`).join(';')
+                }))
             ];
 
             await syncAllData({
@@ -575,16 +594,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         triggerAutoSync({ categories: newState });
     };
 
-    const renameSubcategory = async (type: 'income' | 'expense', categoryId: string, oldName: string, newName: string) => {
+    const renameSubcategory = async (type: 'income' | 'expense', categoryId: string, oldName: string | SubcategoryItem, newName: string | SubcategoryItem) => {
         const categoryItem = availableCategories[type].find(c => c.id === categoryId);
         if (!categoryItem) return;
+
+        const oldSubName = typeof oldName === 'string' ? oldName : oldName.label;
+        const newSubName = typeof newName === 'string' ? newName : newName.label;
 
         // 1. Update Categories Structure
         const newCategories = {
             ...availableCategories,
             [type]: availableCategories[type].map(c => 
                 c.id === categoryId 
-                    ? { ...c, subcategories: (c.subcategories || []).map(s => s === oldName ? newName : s) }
+                    ? { ...c, subcategories: (c.subcategories || []).map(s => {
+                        const sName = typeof s === 'string' ? s : s.label;
+                        return sName === oldSubName ? newName : s;
+                    }) }
                     : c
             )
         };
@@ -592,9 +617,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         // 2. Update existing transactions
         const newTransactions = transactions.map(t => {
-            // Compare label since transactions store the label
-            if (t.category === categoryItem.label && t.subcategory === oldName) {
-                return { ...t, subcategory: newName, updatedAt: new Date().toISOString() };
+            if (t.category === categoryItem.label && t.subcategory === oldSubName) {
+                return { ...t, subcategory: newSubName, updatedAt: new Date().toISOString() };
             }
             return t;
         });
@@ -602,16 +626,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         // 2b. Update predicted expenses
         const newPredicted = predictedExpenses.map(re => {
-            if (re.category === categoryItem.label && re.subcategory === oldName) {
-                return { ...re, subcategory: newName };
+            if (re.category === categoryItem.label && re.subcategory === oldSubName) {
+                return { ...re, subcategory: newSubName };
             }
             return re;
         });
         setPredictedExpenses(newPredicted);
 
         const newPredictedIncomes = predictedIncomes.map(re => {
-            if (re.category === categoryItem.label && re.subcategory === oldName) {
-                return { ...re, subcategory: newName };
+            if (re.category === categoryItem.label && re.subcategory === oldSubName) {
+                return { ...re, subcategory: newSubName };
             }
             return re;
         });
@@ -621,7 +645,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (username) {
             try {
                 const { updateSubcategoryInSheets } = await import('../utils/syncService');
-                await updateSubcategoryInSheets(username, oldName, newName, categoryId);
+                await updateSubcategoryInSheets(username, oldSubName, newSubName, categoryId);
                 
                 // Trigger full sync to ensure consistency
                 triggerAutoSync({ 

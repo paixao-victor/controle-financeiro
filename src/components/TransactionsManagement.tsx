@@ -250,9 +250,28 @@ const TransactionsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className={`text-xs text-dim ${transaction.status === 'deleted' ? 'line-through opacity-50' : ''}`}>
-                                                    {transaction.category}{transaction.subcategory ? ` › ${transaction.subcategory}` : ''}
-                                                </p>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="opacity-60">{transaction.category}</span>
+                                                    {transaction.subcategory && (
+                                                        <>
+                                                            <span className="text-[10px] opacity-30">›</span>
+                                                            <div className="flex items-center gap-1 font-bold">
+                                                                {(() => {
+                                                                    if (transaction.subcategory.includes(':')) {
+                                                                        const [name, icon] = transaction.subcategory.split(':');
+                                                                        return (
+                                                                            <>
+                                                                                <span className="material-symbols-outlined text-[12px] opacity-60">{icon.trim()}</span>
+                                                                                <span>{name.trim()}</span>
+                                                                            </>
+                                                                        );
+                                                                    }
+                                                                    return <span>{transaction.subcategory}</span>;
+                                                                })()}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

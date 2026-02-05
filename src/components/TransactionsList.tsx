@@ -15,13 +15,14 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import EditTransactionModal from './EditTransactionModal';
+import Modal from './Modal';
 
 interface TransactionsListProps {
     searchQuery?: string;
 }
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' }) => {
-    const { transactions, deleteTransaction, currentCurrency, isEditMode } = useTransactions();
+    const { transactions, deleteTransaction, currentCurrency, isEditMode, availableCategories } = useTransactions();
     const { lastFilterPeriod, setLastFilterPeriod, savingsGoal, formatValue } = useSettings();
     const [filterPeriod, setFilterPeriod] = useState<'today' | 'last5' | 'this_month' | 'last_30' | 'last_60' | 'custom'>((lastFilterPeriod as any) || 'last5');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -32,6 +33,16 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
     const [isExportModalOpen, setExportModalOpen] = useState(false);
     const [isSavingsDetailOpen, setSavingsDetailOpen] = useState(false);
     const savingsReportRef = React.useRef<HTMLDivElement>(null);
+    
+    const getSubcategoryIcon = (categoryName: string, subName: string | null | undefined, type: 'income' | 'expense') => {
+        if (!subName) return null;
+        const cat = availableCategories[type].find(c => c.label === categoryName);
+        if (!cat) return null;
+        
+        const sub = cat.subcategories.find(s => (typeof s === 'string' ? s : s.label) === subName);
+        if (typeof sub === 'object') return sub.icon;
+        return null;
+    };
 
     // Sync filter change to persistence
     useEffect(() => {
@@ -185,14 +196,22 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         const lastMonthIncome = lastMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthSavingsAmount = lastMonthIncome - lastMonthExpense;
-        const lastMonthSavingsPercent = lastMonthIncome > 0 ? (lastMonthSavingsAmount / lastMonthIncome) * 100 : 0;
+        const lastMonthSavingsPercent = lastMonthIncome > 0 
+            ? (lastMonthSavingsAmount / lastMonthIncome) * 100 
+            : (lastMonthExpense > 0 ? -100 : 0);
 
         // Cálculo real de economia: (Receitas - Despesas) / Receitas * 100
-        const savingsPercent = income > 0 ? ((income - expense) / income) * 100 : 0;
+        // Se a renda for zero e houver despesa, a economia é -100% (déficit total)
+        // Se ambos forem zero, a economia é 0%
+        const savingsPercent = income > 0 
+            ? ((income - expense) / income) * 100 
+            : (expense > 0 ? -100 : 0);
+        
         const savingsAmount = income - expense;
         
         // Diferença entre meses
         const comparison = savingsPercent - lastMonthSavingsPercent;
+        const savingsDiff = savingsAmount - lastMonthSavingsAmount;
         
         return { 
             income, 
@@ -201,9 +220,12 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
             savingsPercent, 
             savingsAmount,
             lastMonthSavingsPercent,
-            comparison
+            comparison,
+            savingsDiff
         };
     }, [transactions]);
+
+    const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
 
     // Filtragem e Agrupamento (Com Paginação)
     const sortedFilteredTransactions = useMemo(() => {
@@ -492,12 +514,15 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                                         <div className="flex items-center gap-3 lg:gap-4">
                                                             <div className={`size-10 lg:size-12 rounded-2xl flex items-center justify-center ${t.type === 'income' ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'bg-red-50 dark:bg-red-500/10 text-red-500'}`}>
                                                                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                                                                    {t.type === 'income' ? 'arrow_upward' : 'shopping_bag'}
+                                                                    {(() => {
+                                                                        const subIcon = t.subcategory?.includes(':') ? t.subcategory.split(':')[1].trim() : getSubcategoryIcon(t.category, t.subcategory, t.type as any);
+                                                                        return subIcon || (t.type === 'income' ? 'arrow_upward' : 'shopping_bag');
+                                                                    })()}
                                                                 </span>
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-xs lg:text-base text-zinc-900 dark:text-white">
-                                                                    {t.subcategory ? capitalize(t.subcategory) : capitalize(t.category)}
+                                                                    {t.subcategory ? capitalize(t.subcategory.split(':')[0].trim()) : capitalize(t.category)}
                                                                 </p>
                                                                 <p className="text-[10px] lg:text-xs text-zinc-600 dark:text-gray-300 font-medium">
                                                                     {t.subcategory ? capitalize(t.category) : ''} {t.subcategory ? '•' : ''} {format(new Date(t.date), 'HH:mm')}
@@ -526,9 +551,41 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                                                             </button>
                                                                         </div>
                                                                     </div>
-                                                            <p className="text-[8px] lg:text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase mt-1">
-                                                                {t.type === 'income' ? 'Receita' : 'Despesa'}
-                                                            </p>
+                                                        <div className="flex items-center gap-2 text-xs text-dim mt-1 font-medium">
+                                                            <span className="opacity-60">{t.category}</span>
+                                                            {t.subcategory && (
+                                                                <>
+                                                                    <span className="text-[10px] opacity-30">/</span>
+                                                                    <button 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFilterSubcategory(t.subcategory!);
+                                                                        }}
+                                                                        className="flex items-center gap-1.5 bg-green-500/10 dark:bg-green-500/20 px-2 py-0.5 rounded-full border border-green-500/20 hover:border-green-500/40 transition-all group/badge"
+                                                                    >
+                                                                        {(() => {
+                                                                            let subLabel = t.subcategory;
+                                                                            let subIcon = '';
+
+                                                                            if (t.subcategory.includes(':')) {
+                                                                                const parts = t.subcategory.split(':');
+                                                                                subLabel = parts[0].trim();
+                                                                                subIcon = parts[1]?.trim() || '';
+                                                                            } else {
+                                                                                subIcon = getSubcategoryIcon(t.category, t.subcategory, t.type) || 'subdirectory_arrow_right';
+                                                                            }
+
+                                                                            return (
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <span className="material-symbols-outlined text-[14px] text-green-600 dark:text-green-400 font-bold">{subIcon}</span>
+                                                                                    <span className="font-bold text-green-600 dark:text-green-400">{subLabel}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -605,11 +662,15 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                         {summary.savingsAmount >= 0 ? '+' : ''}{formatCurrency(summary.savingsAmount)}
                                     </p>
                                     <p className="text-[10px] lg:text-xs text-gray-500">
-                                        {summary.comparison > 0 
-                                            ? `Você economizou ${summary.comparison.toFixed(0)}% a mais que mês passado!` 
-                                            : summary.comparison < 0 
-                                                ? `Você economizou ${Math.abs(summary.comparison).toFixed(0)}% a menos que mês passado.`
-                                                : 'Sua taxa de economia está igual ao mês passado.'}
+                                        {summary.savingsDiff > 0 
+                                            ? `Você economizou ${formatCurrency(summary.savingsDiff)} a mais que mês passado!` 
+                                            : summary.savingsDiff < 0 
+                                                ? `Sua economia foi ${formatCurrency(Math.abs(summary.savingsDiff))} menor que mês passado.`
+                                                : summary.income > 0 ? 'Sua economia está igual ao mês passado.' : 'Sem dados para comparação.'}
+                                        <br />
+                                        <span className="opacity-60">
+                                            ({summary.comparison > 0 ? '+' : ''}{summary.comparison.toFixed(0)}% na taxa de economia)
+                                        </span>
                                     </p>
                                 </div>
                                 <button 
@@ -803,6 +864,75 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                 />
             )}
 
+            {/* Modal de Transações por Subcategoria */}
+            <Modal isOpen={!!filterSubcategory} onClose={() => setFilterSubcategory(null)}>
+                <div className="flex flex-col h-full max-h-[95vh]">
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-content/5 flex items-center justify-between bg-surface dark:bg-zinc-900 z-10 sticky top-0">
+                        <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                <span className="material-symbols-outlined">
+                                    {filterSubcategory?.includes(':') ? filterSubcategory.split(':')[1].trim() : 'receipt_long'}
+                                </span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-content uppercase tracking-wider">
+                                    {filterSubcategory?.split(':')[0].trim()}
+                                </h2>
+                                <p className="text-[10px] font-bold text-dim uppercase tracking-widest">Filtrado por subcategoria</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setFilterSubcategory(null)} className="p-2 hover:bg-content/5 rounded-full transition-colors active:scale-90">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar pb-10">
+                        {(() => {
+                            const filtered = sortedFilteredTransactions.filter(t => t.subcategory === filterSubcategory);
+                            if (filtered.length === 0) {
+                                return <div className="text-center py-10 text-dim text-xs font-bold uppercase tracking-widest">Nenhuma transação encontrada.</div>;
+                            }
+                            return filtered.map(t => (
+                                <div key={t.id} className="nm-card p-4 rounded-2xl flex items-center justify-between border border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="size-10 rounded-xl bg-content/5 flex items-center justify-center">
+                                            <span className="text-[10px] font-black text-dim uppercase">
+                                                {format(new Date(t.date), 'dd/MM')}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-sm text-content">{t.description || t.category}</p>
+                                            <p className="text-[10px] font-bold text-dim uppercase tracking-tighter opacity-60">
+                                                {format(new Date(t.date), 'HH:mm')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`font-black text-sm ${t.type === 'income' ? 'text-primary' : 'text-content'}`}>
+                                            {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ));
+                        })()}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-6 border-t border-content/5 bg-surface dark:bg-zinc-900 sticky bottom-0 z-20">
+                        <button 
+                            onClick={() => setFilterSubcategory(null)}
+                            className="w-full h-14 nm-card bg-surface text-dim font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl active:scale-95 transition-all"
+                        >
+                            Fechar Lista
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Logout Confirmation Dialog (App.tsx handles this but keeping local logic if needed) */}
+            
             {/* Delete Confirmation Dialog */}
             <Dialog open={!!transactionToDelete} onOpenChange={(open) => !open && setTransactionToDelete(null)}>
                 <DialogContent className="sm:max-w-[425px] bg-surface border-border p-6 shadow-xl">

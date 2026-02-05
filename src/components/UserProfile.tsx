@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { createPortal } from 'react-dom';
 import LiquidGauge from './LiquidGauge';
-import { useTransactions } from '@/contexts/TransactionsContext';
+import { useTransactions } from '../contexts/TransactionsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { checkConsistency } from '@/utils/consistencyChecker';
@@ -41,7 +40,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const cropContainerRef = React.useRef<HTMLDivElement>(null);
-    const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
     // Temp States for Preview (ONLY Persist on Save)
     const [tempPhoto, setTempPhoto] = useState(userPhoto);
@@ -62,6 +60,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
     const [showDirectConfirm, setShowDirectConfirm] = useState(false);
     const [pendingDirectPhoto, setPendingDirectPhoto] = useState<string | null>(null);
     const [showMainPhotoOptions, setShowMainPhotoOptions] = useState(false);
+    const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
 
     // Parallax Motion Values
     const mouseX = useMotionValue(0);
@@ -292,315 +293,251 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
 
     return (
-        <div className="flex flex-col gap-6 animate-fade-up">
-            {/* Cabeçalho removido (usando o global do App.tsx) */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
-                <div className="lg:col-span-4 space-y-6">
-                    <section className="nm-card p-8 flex flex-col items-center relative group/profile">
-                        {/* Botão Editar Perfil (Lápis) */}
-                        <button 
-                            onClick={() => {
-                                setTempName(userName);
-                                setTempEmail(userEmail);
-                                setTempPhoto(userPhoto);
-                                setIsEditingProfile(true);
-                            }}
-                            className="absolute top-4 right-4 size-10 rounded-2xl bg-surface border border-white/5 flex items-center justify-center text-dim hover:text-primary transition-colors hover:border-primary/20 shadow-lg"
-                        >
-                            <span className="material-symbols-outlined text-xl">edit</span>
-                        </button>
-
-                        <motion.div 
-                            className="relative group perspective-1000"
-                            onMouseMove={handleMouseMove}
-                            onMouseLeave={handleMouseLeave}
-                            onTouchMove={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const touch = e.touches[0];
-                                const x = touch.clientX - rect.left - rect.width / 2;
-                                const y = touch.clientY - rect.top - rect.height / 2;
-                                mouseX.set(x * 2.5); // Multiplier for better mobile sensitivity
-                                mouseY.set(y * 2.5);
-                            }}
-                            onTouchEnd={handleMouseLeave}
-                            style={{
-                                rotateX,
-                                rotateY,
-                                transformStyle: "preserve-3d"
-                            }}
-                        >
-                            {/* Círculo Verde Giratório */}
-                            <motion.div 
-                                className="absolute -inset-2 rounded-full border-2 border-dashed border-primary/40 pointer-events-none"
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                            />
-                            
-                            <motion.button 
-                                onClick={onPhotoClick}
-                                whileTap={{ scale: 0.95, translateZ: -20 }}
-                                drag
-                                dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-                                dragElastic={0.1}
-                                onDragStart={() => {
-                                    (window as any).isDraggingPhoto = true;
-                                }}
-                                onDragEnd={() => {
-                                    setTimeout(() => (window as any).isDraggingPhoto = false, 100);
-                                }}
-                                onClickCapture={(e) => {
-                                    if ((window as any).isDraggingPhoto) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }
-                                }}
-                                className="size-40 rounded-full p-1 bg-linear-to-tr from-primary to-transparent transition-shadow hover:shadow-[0_0_30px_rgba(76,175,80,0.3)] relative"
-                                style={{ translateZ: 50 }}
-                            >
-                                <div className="size-full rounded-full overflow-hidden border-4 border-background bg-surface flex items-center justify-center pointer-events-none">
-                                    {userPhoto ? (
-                                        <img 
-                                            alt="Foto de Perfil" 
-                                            className="w-full h-full object-cover" 
-                                            src={userPhoto} 
-                                        />
-                                    ) : (
-                                        <span className="text-primary font-black text-6xl uppercase tracking-tighter">
-                                            {getInitials(userName)}
-                                        </span>
-                                    )}
-                                </div>
-                            </motion.button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handlePhotoUpload} 
-                                className="hidden" 
-                                accept="image/*"
-                            />
-                            <button 
-                                onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    setMenuPos({ top: rect.bottom + 10, left: rect.left });
-                                    setShowMainPhotoOptions(!showMainPhotoOptions);
-                                }}
-                                className="absolute bottom-2 right-2 size-10 bg-surface rounded-full shadow-lg flex items-center justify-center text-primary border border-white/10 hover:brightness-110 active:scale-95 transition-all z-50 pointer-events-auto"
-                                style={{ transform: "translateZ(100px)" }}
-                            >
-                                <span className="material-symbols-outlined text-base">photo_camera</span>
-                            </button>
-
-                            {/* Menu de Opções de Foto Principal */}
-                        </motion.div>
-
-                        {/* Menu de Opções de Foto Principal - Movido para fora do container 3D */}
-                        {/* Menu de Opções de Foto Principal - Portal */}
-                        {showMainPhotoOptions && createPortal(
-                            <>
-                                <div className="fixed inset-0 z-[9998]" onClick={() => setShowMainPhotoOptions(false)} />
-                                <div 
-                                    className="fixed z-[9999] w-56 bg-surface border border-white/10 rounded-2xl shadow-2xl p-2 animate-in fade-in zoom-in-95 duration-200"
-                                    style={{ 
-                                        top: menuPos.top, 
-                                        left: menuPos.left,
-                                        transform: 'translate(-10%, -10%)' // Adjust to overlap slightly nicely
-                                    }}
-                                >
-                                    {userPhoto && (
-                                        <button 
-                                            onClick={() => {
-                                                setImageToCrop(userPhoto);
-                                                setCropZoom(1);
-                                                setCropPosition({ x: 0, y: 0 });
-                                                setBackgroundMode('blur');
-                                                setIsCropModalOpen(true);
-                                                setShowMainPhotoOptions(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl transition-colors text-content font-bold text-xs"
-                                        >
-                                            <span className="material-symbols-outlined text-lg opacity-60">crop_rotate</span>
-                                            Editar Atual
-                                        </button>
-                                    )}
-                                    <button 
-                                        onClick={() => {
-                                            fileInputRef.current?.click();
-                                            setShowMainPhotoOptions(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl transition-colors text-content font-bold text-xs"
-                                    >
-                                        <span className="material-symbols-outlined text-lg opacity-60">upload</span>
-                                        Substituir Foto
-                                    </button>
-                                </div>
-                            </>,
-                            document.body
-                        )}
-                        <div className="text-center mt-6">
-                            <h2 className="text-2xl font-black text-content uppercase tracking-tight">{userName}</h2>
-                            <p className="text-dim text-sm mt-1 font-bold">{userEmail}</p>
-                        </div>
-                    </section>
-
-                    <div 
-                        onClick={() => {
-                            setTargetBalance(currentBalance.toFixed(2).replace('.', ','));
-                            setIsEditingBalance(true);
-                        }}
-                        className="nm-card p-6 flex flex-col items-center justify-center gap-6 relative group cursor-pointer hover:border-primary/50 transition-all active:scale-[0.98]"
+        <div className="flex flex-col gap-8 animate-fade-up max-w-5xl mx-auto w-full pb-20 px-4 lg:px-0">
+            {/* 1. Header do Perfil */}
+            <section className="nm-card p-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                {/* Background Decorativo */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
+                
+                <motion.div 
+                    className="relative group perspective-1000"
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
+                    style={{
+                        rotateX,
+                        rotateY,
+                        transformStyle: "preserve-3d"
+                    }}
+                >
+                    <motion.div 
+                        className="absolute -inset-2 rounded-full border-2 border-dashed border-primary/40 pointer-events-none"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                        style={{ transformStyle: "preserve-3d" }}
+                    />
+                    
+                    <motion.button 
+                        onClick={onPhotoClick}
+                        className="size-32 md:size-40 rounded-full p-1 bg-linear-to-tr from-primary to-transparent shadow-2xl relative"
+                        style={{ translateZ: 50 }}
                     >
-                        <div className="text-center">
-                            <p className="text-[10px] font-black text-dim uppercase tracking-widest leading-none mb-3">Saldo Atual</p>
-                            <h3 className="text-4xl font-black text-content flex items-center justify-center gap-1">
-                                <span className="text-primary text-xl">R$</span>
-                                {currentBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-[10px] font-bold text-primary mt-2 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="material-symbols-outlined text-sm">edit</span>
-                                Clicar para editar
-                            </p>
+                        <div className="size-full rounded-full overflow-hidden border-4 border-background bg-surface flex items-center justify-center">
+                            {userPhoto ? (
+                                <img alt="Perfil" className="w-full h-full object-cover" src={userPhoto} />
+                            ) : (
+                                <span className="text-primary font-black text-5xl uppercase tracking-tighter">{getInitials(userName)}</span>
+                            )}
                         </div>
-                        
-                        <div className="relative">
-                            <LiquidGauge 
-                                value={(() => {
-                                    const income = (transactions || [])
-                                        .filter((t: any) => t.type === 'income')
-                                        .reduce((acc: number, t: any) => acc + t.amount, 0);
-                                    if (income <= 0) return 0;
-                                    const percent = (currentBalance / income) * 100;
-                                    return Math.max(0, percent);
-                                })()} 
-                                size={120} 
-                            />
+                    </motion.button>
+                    
+                    <button 
+                        onClick={(e) => {
+                            setShowMainPhotoOptions(!showMainPhotoOptions);
+                        }}
+                        className="absolute bottom-1 right-1 size-10 bg-surface rounded-full shadow-lg flex items-center justify-center text-primary border border-white/10 hover:scale-110 transition-transform z-[100]"
+                        style={{ transform: 'translateZ(150px)', transformStyle: 'preserve-3d' }}
+                    >
+                        <span className="material-symbols-outlined text-base">photo_camera</span>
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
+                </motion.div>
+
+                <div className="flex-1 text-center md:text-left space-y-2">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3">
+                        <h2 className="text-3xl font-black text-content uppercase tracking-tight">{userName}</h2>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest w-fit mx-auto md:mx-0">
+                            <span className="material-symbols-outlined text-xs">verified</span>
+                            Premium
+                        </span>
+                    </div>
+                    <p className="text-dim font-bold">{userEmail}</p>
+                    <div className="pt-4 flex flex-wrap justify-center md:justify-start gap-4">
+                        <button 
+                            onClick={() => setIsEditingProfile(true)}
+                            className="px-6 py-2.5 bg-primary text-secondary rounded-xl font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-glow"
+                        >
+                            Editar Perfil
+                        </button>
+                        <button 
+                            onClick={() => onNavigate('Configurações')}
+                            className="px-6 py-2.5 bg-surface border border-white/5 rounded-xl font-black text-xs text-dim uppercase tracking-widest hover:text-content transition-all"
+                        >
+                            Preferências
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* 2. Resumo Financeiro */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div 
+                    onClick={() => {
+                        setTargetBalance(currentBalance.toFixed(2).replace('.', ','));
+                        setIsEditingBalance(true);
+                    }}
+                    className="nm-card p-6 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary/30 transition-all group"
+                >
+                    <span className="text-[10px] font-black text-dim uppercase tracking-widest opacity-60">Saldo Consolidado</span>
+                    <div className="text-center group-hover:scale-105 transition-transform">
+                        <p className="text-3xl font-black text-content">
+                            <span className="text-primary text-lg mr-1">R$</span>
+                            {currentBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                    </div>
+                    <span className="text-[9px] font-bold text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="material-symbols-outlined text-xs">edit</span> Ajustar Saldo
+                    </span>
+                </div>
+
+                <div className="flex grid grid-cols-2 lg:grid-cols-1 md:grid-cols-2 gap-6 md:contents">
+                    <div className="nm-card p-6 flex flex-col items-center justify-center gap-4">
+                        <span className="text-[10px] font-black text-dim uppercase tracking-widest opacity-60 text-center">Uso da Renda</span>
+                        <LiquidGauge 
+                            value={(() => {
+                                const income = (transactions || []).filter((t: any) => t.type === 'income').reduce((acc: number, t: any) => acc + t.amount, 0);
+                                if (income <= 0) return 0;
+                                return Math.min(100, Math.max(0, (currentBalance / income) * 100));
+                            })()} 
+                            size={70} 
+                        />
+                    </div>
+
+                    <div className="nm-card p-6 flex flex-col items-center justify-center gap-4">
+                        <span className="text-[10px] font-black text-dim uppercase tracking-widest opacity-60 text-center">Taxa Economia</span>
+                        <div className="text-center">
+                            <p className="text-2xl md:text-3xl font-black text-green-500">24%</p>
+                            <p className="text-[10px] font-bold text-dim mt-1">Este mês</p>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <div className="lg:col-span-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="nm-card p-6 text-left">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="size-10 bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-500">
-                                    <span className="material-symbols-outlined">settings</span>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* 3. Meus Dados (Gestão Principal) */}
+                <div className="lg:col-span-8 space-y-8">
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2 px-2">
+                            <span className="material-symbols-outlined text-primary">analytics</span>
+                            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Meus Dados</h3>
+                        </div>
+                        <div className="nm-card p-2 grid grid-cols-1 md:grid-cols-2 gap-1">
+                            <DataNavItem 
+                                icon="category" 
+                                label="Categorias" 
+                                sub="Personalize seus gastos" 
+                                onClick={() => setProfileAction?.('categories')} 
+                            />
+                            <DataNavItem 
+                                icon="payments" 
+                                label="Transações" 
+                                sub="Histórico e edições" 
+                                onClick={() => setProfileAction?.('transactions')} 
+                            />
+                            <DataNavItem 
+                                icon="account_balance" 
+                                label="Contas Bancárias" 
+                                sub="Gerencie seus bancos" 
+                                onClick={() => setProfileAction?.('accounts')} 
+                            />
+                            <DataNavItem 
+                                icon="credit_card" 
+                                label="Cartões" 
+                                sub="Limites e bandeiras" 
+                                onClick={() => setProfileAction?.('cards')} 
+                            />
+                            <DataNavItem 
+                                icon="calendar_clock" 
+                                label="Despesas Previstas" 
+                                sub="Gastos recorrentes" 
+                                onClick={() => setProfileAction?.('recurring')} 
+                            />
+                            <DataNavItem 
+                                icon="trending_up" 
+                                label="Receitas Previstas" 
+                                sub="Entradas mensais" 
+                                onClick={() => setProfileAction?.('recurring_incomes')} 
+                            />
+                        </div>
+                    </section>
+
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2 px-2">
+                            <span className="material-symbols-outlined text-primary">settings</span>
+                            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Preferências Rápidas</h3>
+                        </div>
+                        <div className="nm-card p-4 space-y-4">
+                            <button 
+                                onClick={() => onNavigate('Configurações')}
+                                className="w-full flex items-center justify-between p-4 bg-content/5 rounded-2xl hover:bg-content/10 transition-all group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <span className="material-symbols-outlined text-primary">settings</span>
+                                    <span className="font-bold text-content">Configurações do Aplicativo</span>
                                 </div>
-                                <h3 className="font-black text-content uppercase text-sm tracking-widest">Ajustes</h3>
-                            </div>
-                            <div className="space-y-1">
-                                <button 
-                                    onClick={() => setProfileAction?.('categories')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Editar Categorias</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => setProfileAction?.('transactions')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Editar Transações</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => setProfileAction?.('accounts')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Editar Contas</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => setProfileAction?.('recurring')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Despesas Previstas</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => setProfileAction?.('recurring_incomes')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Receitas Previstas</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => setProfileAction?.('cards')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Meus Cartões</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => onNavigate('Configurações')}
-                                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group border-t border-white/5 mt-2"
-                                >
-                                    <span className="text-dim font-black text-[10px] uppercase tracking-widest">Preferências do App</span>
-                                    <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform text-sm">settings</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="nm-card p-6">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="size-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
-                                    <span className="material-symbols-outlined">database</span>
-                                </div>
-                                <h3 className="font-black text-content uppercase text-sm tracking-widest">Dados</h3>
-                            </div>
-                            <div className="space-y-1">
-                                <button 
-                                    onClick={() => onNavigate('Importar CSV')}
-                                    className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-xs uppercase tracking-widest">Meus Dados</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">chevron_right</span>
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        const count = checkConsistency(cards, accounts, addSystemNotification);
-                                        if (count > 0) {
-                                            alert(`Foram encontradas ${count} inconsistências. Verifique suas notificações.`);
-                                        } else {
-                                            alert('Nenhuma inconsistência encontrada. Tudo parece certo!');
-                                        }
-                                    }}
-                                    className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group text-left"
-                                >
-                                    <span className="text-dim font-black text-xs uppercase tracking-widest">Verificar Pendências</span>
-                                    <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">fact_check</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="nm-card p-6">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="size-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-500">
-                                <span className="material-symbols-outlined">security</span>
-                            </div>
-                            <h3 className="font-black text-content uppercase text-sm tracking-widest">Privacidade</h3>
-                        </div>
-                        <div className="space-y-2">
-                            <button className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
-                                <span className="text-dim font-black text-xs uppercase tracking-widest">Alterar Senha</span>
                                 <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">chevron_right</span>
                             </button>
                             <button 
-                                onClick={logout}
-                                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 transition-colors text-red-500 font-black mt-2 text-xs uppercase tracking-widest border border-red-500/20 active:scale-95"
+                                onClick={() => {
+                                    const count = checkConsistency(cards, accounts, addSystemNotification);
+                                    if (count > 0) alert(`Foram encontradas ${count} inconsistências.`);
+                                    else alert('Tudo parece certo!');
+                                }}
+                                className="w-full flex items-center justify-between p-4 bg-content/5 rounded-2xl hover:bg-content/10 transition-all group"
                             >
-                                <span className="material-symbols-outlined">sync_alt</span>
-                                <span>Trocar Conta</span>
+                                <div className="flex items-center gap-4">
+                                    <span className="material-symbols-outlined text-primary">fact_check</span>
+                                    <span className="font-bold text-content">Verificar Consistência</span>
+                                </div>
+                                <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">chevron_right</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                {/* 4. Segurança e Conta (Sidebar) */}
+                <div className="lg:col-span-4 space-y-8">
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2 px-2">
+                            <span className="material-symbols-outlined text-primary">security</span>
+                            <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Segurança</h3>
+                        </div>
+                        <div className="nm-card p-4 space-y-1">
+                            <button 
+                                onClick={() => setIsPasswordModalOpen(true)}
+                                className="w-full flex items-center justify-between p-3 hover:bg-content/5 rounded-xl transition-colors group"
+                            >
+                                <span className="text-content font-bold text-sm">Alterar Senha</span>
+                                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
+                            </button>
+                            <button className="w-full flex items-center justify-between p-3 hover:bg-content/5 rounded-xl transition-colors group">
+                                <span className="text-content font-bold text-sm">Biometria / PIN</span>
+                                <span className="material-symbols-outlined text-dim text-sm">chevron_right</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2 px-2">
+                            <span className="material-symbols-outlined text-red-500">account_circle</span>
+                            <h3 className="text-sm font-black uppercase tracking-widest text-red-500/60">Minha Conta</h3>
+                        </div>
+                        <div className="nm-card p-4 space-y-4">
+                            <button 
+                                onClick={() => setShowSwitchConfirm(true)}
+                                className="w-full flex items-center gap-3 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl transition-all text-red-500 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/10 group"
+                            >
+                                <span className="material-symbols-outlined text-lg">sync_alt</span>
+                                Trocar de Conta
                             </button>
                             <button 
                                 onClick={logout}
-                                className="w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-red-500/10 transition-colors text-red-500 font-black mt-2 text-xs uppercase tracking-widest active:scale-95"
+                                className="w-full flex items-center gap-3 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl transition-all text-red-500 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/10"
                             >
-                                <span className="material-symbols-outlined">logout</span>
-                                <span>Sair do Aplicativo</span>
+                                <span className="material-symbols-outlined text-lg">logout</span>
+                                Sair do App
                             </button>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </div>
 
@@ -1040,6 +977,131 @@ const UserProfile: React.FC<UserProfileProps> = ({
                     </div>
                 </div>
             )}
+            {/* Modal de Alteração de Senha */}
+            {isPasswordModalOpen && (
+                <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsPasswordModalOpen(false)}>
+                    <div className="nm-card w-full max-w-sm p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="text-center">
+                            <h3 className="text-xl font-black text-content uppercase tracking-widest">Alterar Senha</h3>
+                            <p className="text-dim text-xs mt-2 font-bold uppercase tracking-widest">Segurança da Conta</p>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Senha Atual</label>
+                                <input 
+                                    type="password"
+                                    value={passwords.current}
+                                    onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                                    className="w-full bg-surface-dark/5 dark:bg-white/5 border border-content/10 h-12 rounded-xl px-4 text-sm font-bold text-content focus:outline-none focus:ring-2 ring-primary/50 transition-all shadow-inner"
+                                    placeholder="••••••••"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Nova Senha</label>
+                                <input 
+                                    type="password"
+                                    value={passwords.new}
+                                    onChange={(e) => setPasswords({...passwords, new: e.target.value})}
+                                    className="w-full bg-surface-dark/5 dark:bg-white/5 border border-content/10 h-12 rounded-xl px-4 text-sm font-bold text-content focus:outline-none focus:ring-2 ring-primary/50 transition-all shadow-inner"
+                                    placeholder="Mínimo 8 caracteres"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-dim uppercase tracking-widest ml-1">Confirmar Nova Senha</label>
+                                <input 
+                                    type="password"
+                                    value={passwords.confirm}
+                                    onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                                    className="w-full bg-surface-dark/5 dark:bg-white/5 border border-content/10 h-12 rounded-xl px-4 text-sm font-bold text-content focus:outline-none focus:ring-2 ring-primary/50 transition-all shadow-inner"
+                                    placeholder="Repita a nova senha"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={async () => {
+                                    if (!passwords.current || !passwords.new || !passwords.confirm) {
+                                        alert('Preencha todos os campos!');
+                                        return;
+                                    }
+                                    if (passwords.new.length < 8) {
+                                        alert('A nova senha deve ter pelo menos 8 caracteres!');
+                                        return;
+                                    }
+                                    if (passwords.new !== passwords.confirm) {
+                                        alert('As senhas novas não coincidem!');
+                                        return;
+                                    }
+                                    
+                                    try {
+                                        // Validar senha atual
+                                        if (user?.password && passwords.current !== user.password) {
+                                            alert('A senha atual está incorreta!');
+                                            return;
+                                        }
+
+                                        // A função updateUser já envia para o cloud em AuthContext
+                                        await updateUser({ 
+                                            password: passwords.new
+                                        });
+
+                                        alert('Senha alterada com sucesso!');
+                                        setIsPasswordModalOpen(false);
+                                        setPasswords({ current: '', new: '', confirm: '' });
+                                    } catch (err: any) {
+                                        alert(`Erro ao alterar senha: ${err.message}`);
+                                    }
+                                }}
+                                className="w-full bg-primary text-secondary h-12 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-glow hover:brightness-105 active:scale-95 transition-all"
+                            >
+                                Confirmar Alteração
+                            </button>
+                            <button 
+                                onClick={() => setIsPasswordModalOpen(false)}
+                                className="w-full text-dim font-black py-2 hover:text-content transition-colors uppercase text-[10px] tracking-widest"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Confirmação de Troca de Conta */}
+            {showSwitchConfirm && (
+                <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowSwitchConfirm(false)}>
+                    <div className="nm-card w-full max-w-sm p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-200 text-center" onClick={e => e.stopPropagation()}>
+                        <div className="size-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <span className="material-symbols-outlined text-4xl">sync_alt</span>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-content uppercase tracking-widest">Trocar de Conta?</h3>
+                            <p className="text-dim text-sm mt-3 font-bold">Você vai sair da conta atual para entrar em outra.</p>
+                        </div>
+                        
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={() => {
+                                    setShowSwitchConfirm(false);
+                                    logout();
+                                }}
+                                className="w-full bg-red-500 text-white h-14 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                            >
+                                Sim, Desejo Sair
+                            </button>
+                            <button 
+                                onClick={() => setShowSwitchConfirm(false)}
+                                className="w-full text-dim font-black py-2 hover:text-content transition-colors uppercase text-[10px] tracking-widest"
+                            >
+                                Manter Logado
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modais de Gerenciamento */}
             <Modal isOpen={profileAction === 'categories'} onClose={() => setProfileAction?.(null)}>
                 <CategoriesManagement onBack={() => setProfileAction?.(null)} />
@@ -1067,5 +1129,23 @@ const UserProfile: React.FC<UserProfileProps> = ({
         </div>
     );
 };
+
+const DataNavItem: React.FC<{ icon: string, label: string, sub: string, onClick: () => void }> = ({ icon, label, sub, onClick }) => (
+    <button 
+        onClick={onClick}
+        className="flex items-center justify-between p-4 hover:bg-content/5 rounded-2xl transition-all group text-left"
+    >
+        <div className="flex items-center gap-4">
+            <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined">{icon}</span>
+            </div>
+            <div>
+                <p className="font-black text-content text-sm leading-tight">{label}</p>
+                <p className="text-[10px] font-bold text-dim uppercase tracking-widest mt-0.5">{sub}</p>
+            </div>
+        </div>
+        <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform text-sm">chevron_right</span>
+    </button>
+);
 
 export default UserProfile;

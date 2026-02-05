@@ -13,6 +13,7 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
     const { notifications, markAsRead, markAllAsRead, deleteNotification, settings, updateSettings } = useNotifications();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isDaysSheetOpen, setIsDaysSheetOpen] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
 
     // Grouping Logic
     const sortedDetails = [...notifications].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -56,13 +57,35 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
 
             {/* Content */}
             <div className="flex-1 min-w-0 py-1">
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex justify-between items-start gap-4 relative">
                     <h4 className={`text-base font-bold truncate ${!notification.read ? 'text-content' : 'text-dim'}`}>
                         {notification.title}
                     </h4>
-                    <span className="text-[10px] font-bold text-dim/50 uppercase tracking-widest whitespace-nowrap">
-                        {formatDistanceToNow(new Date(notification.date), { addSuffix: true, locale: ptBR })}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                        <span className="text-[10px] font-bold text-dim/50 uppercase tracking-widest whitespace-nowrap">
+                            {formatDistanceToNow(new Date(notification.date), { addSuffix: true, locale: ptBR })}
+                        </span>
+                        
+                        {/* Ações em Modo de Edição */}
+                        {isEditMode && (
+                            <div className="flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {!notification.read && (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
+                                        className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-secondary transition-all active:scale-90"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">check</span>
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
+                                    className="size-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                >
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <p className="text-sm text-dim mt-1 leading-relaxed">
                     {notification.message}
@@ -74,25 +97,27 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                 )}
             </div>
 
-            {/* Actions (Hover) */}
-            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
-                    className="size-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
-                    title="Excluir"
-                >
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                </button>
-                 {!notification.read && (
+            {/* Actions (Hover) - Ocultar no modo de edição pois já estão expostas */}
+            {!isEditMode && (
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                     <button 
-                        onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
-                        className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-secondary transition-colors"
-                        title="Marcar como lida"
+                        onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
+                        className="size-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+                        title="Excluir"
                     >
-                        <span className="material-symbols-outlined text-sm">check</span>
+                        <span className="material-symbols-outlined text-sm">delete</span>
                     </button>
-                 )}
-            </div>
+                     {!notification.read && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
+                            className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-secondary transition-colors"
+                            title="Marcar como lida"
+                        >
+                            <span className="material-symbols-outlined text-sm">check</span>
+                        </button>
+                     )}
+                </div>
+            )}
             
             {/* Unread Indicator */}
             {!notification.read && (
@@ -177,13 +202,23 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                         }}
                     />
 
-                    {notifications.length > 0 && (
+                    {/* Botão de Edição (Lápis) */}
+                    <button 
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        className={`size-10 rounded-xl flex items-center justify-center transition-all ${isEditMode ? 'bg-primary text-secondary shadow-glow' : 'bg-surface text-dim hover:text-primary'}`}
+                        title="Editar"
+                    >
+                        <span className="material-symbols-outlined text-xl">{isEditMode ? 'close' : 'edit'}</span>
+                    </button>
+
+                    {/* Botão Marcar Todas como Lidas (Pode aparecer só no modo de edição ou sempre) */}
+                    {(isEditMode || (notifications.length > 0 && notifications.some(n => !n.read))) && (
                         <button 
                             onClick={markAllAsRead}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface hover:bg-surface/80 border border-transparent hover:border-primary/20 transition-all group"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all group ${isEditMode ? 'bg-primary/20 text-primary border-primary/30' : 'bg-surface hover:bg-surface/80 border-transparent hover:border-primary/20'}`}
                         >
-                            <span className="material-symbols-outlined text-primary text-xl group-hover:scale-110 transition-transform">done_all</span>
-                            <span className="hidden md:block text-xs font-bold uppercase tracking-widest text-dim group-hover:text-content">Marcar todas como lidas</span>
+                            <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">done_all</span>
+                            <span className="hidden md:block text-xs font-black uppercase tracking-widest text-dim group-hover:text-content">Lidas</span>
                         </button>
                     )}
                 </div>

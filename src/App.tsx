@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import LiquidGauge from './components/LiquidGauge';
 import { TransactionsProvider, useTransactions } from '@/contexts/TransactionsContext';
 import { NotificationsProvider, useNotifications } from '@/contexts/NotificationsContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,13 +28,12 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 const TABS = {
   DASHBOARD: 'Dashboard',
   EXTRATO: 'Extrato',
-  RELATORIOS: 'Contas',
+  ACCOUNTS: 'Contas',
+  CARDS: 'Cartões',
+  NOTIFICATIONS: 'Notificações',
   PERFIL: 'Perfil',
   CONFIG: 'Configurações',
-  IMPORT: 'Importar CSV',
-  CARDS: 'Meus Cartões',
-  ACCOUNTS: 'Contas',
-  NOTIFICATIONS: 'Notificações'
+  IMPORT: 'Importar Dados',
 } as const;
 
 type ActiveTab = typeof TABS[keyof typeof TABS];
@@ -45,39 +45,44 @@ interface NavItemProps {
   isActive: boolean;
   onClick: () => void;
   badge?: number;
+  isExpanded?: boolean;
 }
 
-const NavItem = ({ icon, label, isActive, onClick, badge }: NavItemProps) => {
+const NavItem = ({ icon, label, isActive, onClick, badge, isExpanded = true }: NavItemProps) => {
   return (
     <button
       onClick={onClick}
       className={`
-                group relative flex items-center w-full h-12 rounded-xl transition-all duration-300
-                ${label ? 'justify-start px-3' : 'justify-center'}
+                group relative flex items-center w-full h-12 rounded-xl transition-all duration-300 px-4
                 ${isActive
           ? 'bg-gray-100 dark:bg-white/10 text-content shadow-soft dark:shadow-glow'
           : 'opacity-50 hover:opacity-100 hover:bg-gray-50 dark:hover:bg-white/5'
         }
             `}
     >
-      <div className="relative">
-          <span className={`material-symbols-outlined text-2xl shrink-0 ${isActive ? 'text-primary' : ''}`}>{icon}</span>
+      <div className="flex items-center justify-center w-8 shrink-0">
+          <span className={`material-symbols-outlined text-2xl ${isActive ? 'text-primary' : ''}`}>{icon}</span>
           {badge !== undefined && badge > 0 && (
               <span className="absolute -top-1 -right-1 size-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full animate-bounce">
                   {badge > 9 ? '9+' : badge}
               </span>
           )}
       </div>
-      {label && <span className={`ml-3 font-semibold text-sm transition-opacity duration-300 ${isActive ? 'text-content' : ''}`}>{label}</span>}
+      
+      <div className={`flex-1 flex items-center transition-all duration-300 overflow-hidden ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0'}`}>
+        <span className={`font-semibold text-sm whitespace-nowrap ${isActive ? 'text-content' : ''}`}>
+          {label}
+        </span>
+      </div>
 
       {/* Indicador Ativo */}
       {isActive && (
-        <div className="absolute left-0 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(71,244,37,0.8)]"></div>
+        <div className="absolute left-0 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(71,244,37,0.8)] transition-all"></div>
       )}
 
-      {/* Tooltip Mobile/Tablet (Somente quando sem label) */}
-      {!label && (
-        <div className="lg:hidden absolute left-14 bg-black/80 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap backdrop-blur-md z-50">
+      {/* Tooltip Tablet (Somente quando retraído) */}
+      {!isExpanded && (
+        <div className="hidden lg:group-hover:flex absolute left-16 bg-black/80 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap backdrop-blur-md z-50 border border-white/10 shadow-2xl translate-x-2 group-hover:translate-x-0">
           {label || icon}
         </div>
       )}
@@ -97,8 +102,8 @@ function AppContent() {
   const { isSyncing } = useTransactions();
   const [activeTab, setActiveTab] = useState<typeof TABS[keyof typeof TABS]>(TABS.DASHBOARD);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
-  const [isSearchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
@@ -107,6 +112,7 @@ function AppContent() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [addTransactionInitialData, setAddTransactionInitialData] = useState<any>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Splash Screen Timer
   useEffect(() => {
@@ -135,7 +141,35 @@ function AppContent() {
     e.target.value = ''; 
   };
 
-  // No longer using hover delay for sidebar
+  // Sidebar Hover Logic
+  const hoverTimeoutRef = React.useRef<any>(null);
+
+  const handleMouseEnter = () => {
+    if (isSidebarCollapsed) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setSidebarCollapsed(false);
+      }, 800);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    // Sempre retrai ao sair o mouse, conforme solicitado
+    if (!isSidebarCollapsed) {
+      setSidebarCollapsed(true);
+    }
+  };
+
+  const toggleSidebar = (e: React.MouseEvent) => {
+    // Evitar disparar ao clicar em botões específicos dentro da sidebar que já têm suas ações
+    if ((e.target as HTMLElement).closest('button')) return;
+    // Ao clicar, a sidebar deve se retrair (conforme solicitado: "ao ser clicado deve se retrair")
+    setSidebarCollapsed(true);
+  };
+
   const isExpanded = !isSidebarCollapsed;
   useEffect(() => {
     const handleOpenAddTransaction = (e: any) => {
@@ -197,7 +231,7 @@ function AppContent() {
     } else if (target === 'Configurações') {
       setActiveTab(TABS.CONFIG);
     } else if (target === 'Despesas Previstas') {
-      setActiveTab(TABS.RELATORIOS);
+      setActiveTab(TABS.ACCOUNTS);
     } else if (target === 'Importar CSV') {
       setActiveTab(TABS.IMPORT);
     }
@@ -208,7 +242,8 @@ function AppContent() {
     handleTabChange(TABS.EXTRATO);
   };
 
-  const isSubPage = activeTab === TABS.CONFIG || activeTab === TABS.IMPORT || activeTab === TABS.CARDS || activeTab === TABS.ACCOUNTS;
+    const isSubPage = [TABS.IMPORT, TABS.CONFIG].includes(activeTab as any);
+    const showBackButton = isSubPage || (activeTab === TABS.CONFIG && false); 
 
   const handleBack = () => {
     if (activeTab === TABS.IMPORT || activeTab === TABS.CONFIG) {
@@ -223,21 +258,13 @@ function AppContent() {
       case TABS.DASHBOARD:
         return <Dashboard />;
       case TABS.EXTRATO:
-        return <TransactionsList searchQuery={searchQuery} />;
-      case TABS.RELATORIOS:
+        return <TransactionsList searchQuery={globalSearchQuery} />;
+      case TABS.ACCOUNTS:
         return <AccountsPayable />;
       case TABS.CARDS:
         return <MyCards onBack={() => setActiveTab(TABS.DASHBOARD)} />;
-      case TABS.ACCOUNTS:
-        return <AccountsManagement onBack={() => setActiveTab(TABS.PERFIL)} />;
       case TABS.NOTIFICATIONS:
         return <NotificationsCenter onBack={() => setActiveTab(TABS.DASHBOARD)} />;
-      case TABS.IMPORT:
-        return (
-          <div className="max-w-4xl mx-auto mt-6">
-            <DataManagement />
-          </div>
-        );
       case TABS.PERFIL:
         return (
           <UserProfile 
@@ -249,6 +276,12 @@ function AppContent() {
         );
       case TABS.CONFIG:
         return <Settings onNavigate={handleTabChange} />;
+      case TABS.IMPORT:
+        return (
+          <div className="max-w-4xl mx-auto mt-6">
+            <DataManagement />
+          </div>
+        );
       default:
         return <Dashboard />;
     }
@@ -262,7 +295,6 @@ function AppContent() {
         {showSplash && <SplashScreen key="splash" />}
       </AnimatePresence>
 
-      <LoadingOverlay show={isSyncing} />
 
       <div className="flex h-screen w-full overflow-hidden bg-background text-content font-display selection:bg-primary/30 transition-colors duration-300">
       {/* Mobile Drawer Overlay */}
@@ -284,6 +316,7 @@ function AppContent() {
         }}
         className={`fixed inset-y-0 left-0 z-80 w-80 glass-dock md:hidden flex flex-col overflow-y-auto pb-10 shadow-2xl`}
         style={{ touchAction: 'pan-y' }}
+        onClick={() => setMobileMenuOpen(false)}
       >
         <div className="p-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -294,184 +327,236 @@ function AppContent() {
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
+
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto w-full">
-          <NavItem icon="home" label="Início" isActive={activeTab === TABS.DASHBOARD} onClick={() => handleTabChange(TABS.DASHBOARD)} />
-          <NavItem icon="receipt_long" label="Extrato" isActive={activeTab === TABS.EXTRATO} onClick={() => handleTabChange(TABS.EXTRATO)} />
-          <NavItem icon="upload_file" label="Importar" isActive={activeTab === TABS.IMPORT} onClick={() => handleTabChange(TABS.IMPORT)} />
-          <NavItem icon="pie_chart" label="Relatórios" isActive={activeTab === TABS.RELATORIOS} onClick={() => handleTabChange(TABS.RELATORIOS)} />
-          <NavItem icon="notifications" label="Notificações" isActive={activeTab === TABS.NOTIFICATIONS} onClick={() => handleTabChange(TABS.NOTIFICATIONS)} badge={unreadCount} />
-          <NavItem icon="person" label="Perfil" isActive={activeTab === TABS.PERFIL} onClick={() => handleTabChange(TABS.PERFIL)} />
+          <div className="px-3 mb-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Principal</span>
+          </div>
+          <NavItem icon="home" label="Início" isActive={activeTab === TABS.DASHBOARD} onClick={() => { handleTabChange(TABS.DASHBOARD); setMobileMenuOpen(false); }} />
+          <NavItem icon="receipt_long" label="Extrato" isActive={activeTab === TABS.EXTRATO} onClick={() => { handleTabChange(TABS.EXTRATO); setMobileMenuOpen(false); }} />
+          
+          <button 
+            onClick={() => { setIsAddTransactionOpen(true); setMobileMenuOpen(false); }}
+            className="w-full flex items-center gap-3 px-3 py-4 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all my-2 group"
+          >
+            <span className="material-symbols-outlined font-black">add</span>
+            <span className="text-sm font-black uppercase tracking-widest">Nova Transação</span>
+          </button>
+
+          <NavItem icon="checklist" label="Contas" isActive={activeTab === TABS.ACCOUNTS} onClick={() => { handleTabChange(TABS.ACCOUNTS); setMobileMenuOpen(false); }} />
+          <NavItem icon="credit_card" label="Cartões" isActive={activeTab === TABS.CARDS} onClick={() => { handleTabChange(TABS.CARDS); setMobileMenuOpen(false); }} />
+          <NavItem icon="notifications" label="Notificações" isActive={activeTab === TABS.NOTIFICATIONS} onClick={() => { handleTabChange(TABS.NOTIFICATIONS); setMobileMenuOpen(false); }} badge={unreadCount} />
+          
+          <div className="px-3 mt-6 mb-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Gerenciamento</span>
+          </div>
+          <NavItem icon="person" label="Perfil" isActive={activeTab === TABS.PERFIL} onClick={() => { handleTabChange(TABS.PERFIL); setMobileMenuOpen(false); }} />
         </nav>
 
         {/* Bottom Theme & Settings Mobile */}
         <div className="mt-auto p-6 border-t border-gray-100 dark:border-white/5 space-y-4">
-           {/* Theme Toggle Mobile */}
-           <div className="flex items-center justify-between px-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-secondary/40 dark:text-white/40">Tema</span>
+           <div className="px-3 mb-2">
+             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Configurações</span>
+           </div>
+           
+           <div className="flex items-center justify-between px-3 h-12">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-dim">palette</span>
+                <span className="text-sm font-semibold">Tema</span>
+              </div>
               <button 
-                 onClick={toggleTheme}
-                 className={`
-                   relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none 
-                   ${theme === 'dark' ? 'bg-primary/20' : 'bg-gray-200'}
-                 `}
+                onClick={toggleTheme}
+                className="size-10 flex items-center justify-center rounded-xl bg-content/5 text-dim relative overflow-hidden"
               >
-                 <span className={`
-                    pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                    ${theme === 'dark' ? 'translate-x-5' : 'translate-x-0'}
-                 `}>
-                    <span className={`absolute inset-0 flex h-full w-full items-center justify-center transition-opacity ${theme === 'dark' ? 'opacity-0' : 'opacity-100'}`}>
-                       <span className="material-symbols-outlined text-[12px] text-gray-400">light_mode</span>
-                    </span>
-                    <span className={`absolute inset-0 flex h-full w-full items-center justify-center transition-opacity ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}>
-                       <span className="material-symbols-outlined text-[12px] text-primary">dark_mode</span>
-                    </span>
-                 </span>
+                <div className="relative size-6">
+                  <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${theme === 'dark' ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'}`}>
+                    <span className="material-symbols-outlined text-[20px]">light_mode</span>
+                  </span>
+                  <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${theme === 'dark' ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
+                    <span className="material-symbols-outlined text-[20px] text-primary">dark_mode</span>
+                  </span>
+                </div>
               </button>
            </div>
            
-           <NavItem icon="settings" label="Configurações" isActive={activeTab === TABS.CONFIG} onClick={() => handleTabChange(TABS.CONFIG)} />
+           <NavItem icon="settings" label="Configurações" isActive={activeTab === TABS.CONFIG} onClick={() => handleTabChange(TABS.CONFIG)} isExpanded={true} />
            <button
-             onClick={logout}
-             className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors mt-2"
+             onClick={(e) => {
+               e.stopPropagation();
+               setShowLogoutConfirm(true);
+             }}
+             className="w-full flex items-center h-12 px-4 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors mt-2"
            >
-             <span className="material-symbols-outlined text-xl">logout</span>
-             <span className="text-sm font-bold">Sair</span>
+             <div className="flex items-center justify-center w-8 shrink-0">
+               <span className="material-symbols-outlined text-xl">logout</span>
+             </div>
+             <div className="ml-3 flex-1">
+               <span className="text-sm font-bold">Sair</span>
+             </div>
            </button>
         </div>
       </motion.aside>
 
       {/* Sidebar Desktop */}
       <aside 
-        onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
-        className={`hidden md:flex flex-col glass-dock z-40 h-full relative transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer ${isExpanded ? 'w-64 items-stretch' : 'w-20 items-center overflow-x-hidden'}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={toggleSidebar}
+        className={`hidden md:flex flex-col glass-dock z-40 h-full  relative transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64' : 'w-20'} items-stretch`}
       >
-        <div className={`mb-8 flex items-center px-6 gap-3 ${!isExpanded ? 'justify-center' : ''}`}>
-          {!isExpanded ? (
-            <span className="material-symbols-outlined text-primary text-3xl">account_balance_wallet</span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-2xl">account_balance_wallet</span>
-              <span className="font-extrabold text-xl tracking-tight text-content">Fintech<span className="text-primary">.</span></span>
-            </div>
-          )}
+        <div className={`mb-8 flex items-center px-4 justify-between gap-3 relative h-12`}>
+          <div 
+            className="flex items-center gap-2 cursor-pointer" 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTabChange(TABS.DASHBOARD);
+            }}
+          >
+            <img src="/logo-animated.svg" alt="Logo" className={`${isExpanded ? 'size-16' : 'size-16'}`} />
+            {isExpanded && (
+              <span className="font-extrabold text-xl tracking-tight text-content animate-in fade-in slide-in-from-left-4 duration-300">
+                Controle<span className="text-primary"> Financeiro</span>
+              </span>
+            )}
+          </div>
+
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setSidebarCollapsed(!isSidebarCollapsed);
+            }}
+            className={`
+              absolute transition-all duration-500 flex items-center justify-center
+              ${isExpanded 
+                ? 'right-6 rotate-0 h-10 w-10 hover:bg-content/5 rounded-lg' 
+                : 'left-[calc(3rem+6px)] rotate-180 h-3 w-3 text-primary'}
+            `}
+          >
+            <span className="material-symbols-outlined text-xl">chevron_left</span>
+          </button>
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 space-y-2 flex flex-col w-full px-4">
+        <nav className="flex-1 space-y-1 flex items-center flex-col w-full px-4">
+          <div className="px-4 h-6 flex items-center mt-2 transition-all duration-300">
+            {isExpanded ? (
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Principal</span>
+            ) : (
+              <div className="w-8 h-[2px] bg-dim/20 rounded-full mx-auto" />
+            )}
+          </div>
+          
           <NavItem
             icon="home"
-            label={isExpanded ? "Início" : ""}
+            label="Início"
             isActive={activeTab === TABS.DASHBOARD}
-            onClick={() => setActiveTab(TABS.DASHBOARD)}
+            onClick={() => handleTabChange(TABS.DASHBOARD)}
+            isExpanded={isExpanded}
           />
           <NavItem
             icon="receipt_long"
-            label={isExpanded ? "Extrato" : ""}
+            label="Extrato"
             isActive={activeTab === TABS.EXTRATO}
-            onClick={() => setActiveTab(TABS.EXTRATO)}
-          />
-          <NavItem
-            icon="notifications"
-            label={isExpanded ? "Notificações" : ""}
-            isActive={isNotificationPanelOpen}
-            onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
-            badge={unreadCount}
-          />
-          <NavItem
-            icon="upload_file"
-            label={isExpanded ? "Importar" : ""}
-            isActive={activeTab === TABS.IMPORT}
-            onClick={() => setActiveTab(TABS.IMPORT)}
-          />
-          <NavItem
-            icon="pie_chart"
-            label={isExpanded ? "Contas" : ""}
-            isActive={activeTab === TABS.RELATORIOS}
-            onClick={() => setActiveTab(TABS.RELATORIOS)}
-          />
-          <NavItem
-            icon="person"
-            label={isExpanded ? "Perfil" : ""}
-            isActive={activeTab === TABS.PERFIL}
-            onClick={() => setActiveTab(TABS.PERFIL)}
+            onClick={() => handleTabChange(TABS.EXTRATO)}
+            isExpanded={isExpanded}
           />
 
           <button 
-            onClick={(e) => { e.stopPropagation(); setIsAddTransactionOpen(true); }}
+            onClick={() => setIsAddTransactionOpen(true)}
             className={`
-              mt-6 flex items-center gap-3 bg-primary text-secondary font-bold rounded-2xl transition-all hover:brightness-110 active:scale-95 shadow-lg shadow-primary/20
+              my-4 flex items-center gap-3 bg-primary text-secondary font-bold rounded-2xl transition-all hover:brightness-110 active:scale-95 shadow-lg shadow-primary/20
               ${!isExpanded ? 'size-12 justify-center' : 'w-full py-4 px-6'}
             `}
           >
             <span className="material-symbols-outlined text-2xl font-bold">add</span>
             {isExpanded && <span className="uppercase tracking-widest text-[11px]">Nova Transação</span>}
           </button>
+
+          <NavItem
+            icon="checklist"
+            label="Contas"
+            isActive={activeTab === TABS.ACCOUNTS}
+            onClick={() => handleTabChange(TABS.ACCOUNTS)}
+            isExpanded={isExpanded}
+          />
+          <NavItem
+            icon="credit_card"
+            label="Cartões"
+            isActive={activeTab === TABS.CARDS}
+            onClick={() => handleTabChange(TABS.CARDS)}
+            isExpanded={isExpanded}
+          />
+          <NavItem
+            icon="notifications"
+            label="Notificações"
+            isActive={activeTab === TABS.NOTIFICATIONS}
+            onClick={() => handleTabChange(TABS.NOTIFICATIONS)}
+            badge={unreadCount}
+            isExpanded={isExpanded}
+          />
+
+          <div className="px-4 h-6 flex items-center mt-6 transition-all duration-300">
+            {isExpanded ? (
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Gerenciamento</span>
+            ) : (
+              <div className="w-8 h-[2px] bg-dim/20 rounded-full mx-auto" />
+            )}
+          </div>
+          <NavItem
+            icon="person"
+            label="Perfil"
+            isActive={activeTab === TABS.PERFIL}
+            onClick={() => handleTabChange(TABS.PERFIL)}
+            isExpanded={isExpanded}
+          />
         </nav>
 
         {/* Bottom Config & Toggle */}
-        <div className="mt-auto pt-6 border-t border-white/5 w-full px-4 flex flex-col gap-2">
+        <div className="mt-auto pt-6 border-t border-white/5 w-full px-4 flex flex-col gap-1">
+          {isExpanded && (
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Ajustes</span>
+            </div>
+          )}
+
           <NavItem
             icon="settings"
-            label={isExpanded ? "Configurações" : ""}
+            label="Configurações"
             isActive={activeTab === TABS.CONFIG}
-            onClick={() => setActiveTab(TABS.CONFIG)}
+            onClick={() => handleTabChange(TABS.CONFIG)}
+            isExpanded={isExpanded}
           />
           
-          {/* Theme Toggle Switch */}
-          <div className={`flex items-center gap-3 p-2 mt-2 border-t border-white/5 ${!isExpanded ? 'justify-center' : 'px-3'}`}>
-             {isExpanded && (
-               <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">Tema</span>
-             )}
+          <div className={`flex items-center gap-3 h-12 ${!isExpanded ? 'justify-center' : 'px-4'}`}>
              <button 
-                onClick={(e) => { e.stopPropagation(); toggleTheme(); }}
-                className={`
-                  relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-white/10
-                  ${theme === 'dark' ? 'bg-primary/20' : 'bg-gray-200'}
-                `}
+                onClick={toggleTheme}
+                className="size-10 flex items-center justify-center rounded-xl hover:bg-content/5 transition-all text-dim hover:text-primary active:scale-95"
              >
-                <span className="sr-only">Toggle Theme</span>
-                <span
-                  className={`
-                    pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                    ${theme === 'dark' ? 'translate-x-[20px]' : 'translate-x-0'}
-                  `}
-                >
-                  <span
-                    className={`
-                      absolute inset-0 flex h-full w-full items-center justify-center transition-opacity
-                      ${theme === 'dark' ? 'opacity-0 duration-100 ease-out' : 'opacity-100 duration-200 ease-in'}
-                    `}
-                  >
-                    <span className="material-symbols-outlined text-[10px] text-gray-400">light_mode</span>
+                <div className="relative size-6">
+                  <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${theme === 'dark' ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'}`}>
+                    <span className="material-symbols-outlined text-[20px]">light_mode</span>
                   </span>
-                  <span
-                    className={`
-                      absolute inset-0 flex h-full w-full items-center justify-center transition-opacity
-                      ${theme === 'dark' ? 'opacity-100 duration-200 ease-in' : 'opacity-0 duration-100 ease-out'}
-                    `}
-                  >
-                     <span className="material-symbols-outlined text-[10px] text-primary">dark_mode</span>
+                  <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${theme === 'dark' ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
+                    <span className="material-symbols-outlined text-[20px] text-primary">dark_mode</span>
                   </span>
-                </span>
+                </div>
              </button>
+             {isExpanded && <span className="text-xs font-bold text-dim animate-in fade-in duration-300">Tema</span>}
           </div>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); setSidebarCollapsed(!isSidebarCollapsed); }}
-            className="flex items-center justify-center p-2 text-content/50 hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined">
-              {isSidebarCollapsed ? 'chevron_right' : 'chevron_left'}
-            </span>
-          </button>
           
-          {/* Logout Button */}
           <button
-            onClick={(e) => { e.stopPropagation(); logout(); }}
-            className={`flex items-center gap-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors mt-2 ${!isExpanded ? 'justify-center p-2' : 'w-full px-3 py-2'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLogoutConfirm(true);
+            }}
+            className={`flex items-center h-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all mt-2 px-4`}
           >
-            <span className="material-symbols-outlined">logout</span>
-            {isExpanded && <span className="text-sm font-bold">Sair</span>}
+            <div className="flex items-center justify-center w-8 shrink-0">
+              <span className="material-symbols-outlined text-xl">logout</span>
+            </div>
+            <div className={`flex-1 transition-all duration-300 overflow-hidden ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0'}`}>
+              <span className="text-sm font-bold whitespace-nowrap">Sair</span>
+            </div>
           </button>
         </div>
       </aside>
@@ -520,32 +605,25 @@ function AppContent() {
               </button>
             )}
           </div>
-          <h1 className="text-lg font-bold">{activeTab}</h1>
           <div className="flex items-center gap-2">
-            {activeTab === TABS.EXTRATO && (
-              <div className="relative">
-                {isSearchOpen ? (
-                  <div className="absolute right-0 top-0 flex items-center gap-2 bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/10 rounded-full px-4 py-2 shadow-lg z-100 animate-in slide-in-from-right">
-                    <span className="material-symbols-outlined text-gray-400 text-sm">search</span>
-                    <input
-                      autoFocus
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="bg-transparent outline-none text-sm text-content placeholder-content/50 w-40"
-                      placeholder="Buscar..."
-                      type="text"
-                    />
-                    <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="text-gray-400 hover:text-gray-600">
-                      <span className="material-symbols-outlined text-sm">close</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => setSearchOpen(true)} className="size-10 flex items-center justify-center text-content">
-                    <span className="material-symbols-outlined">search</span>
-                  </button>
-                )}
-              </div>
+            <h1 className="text-lg font-bold">{activeTab}</h1>
+            {isSyncing && (
+              <motion.span 
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="material-symbols-outlined text-primary text-sm animate-pulse"
+              >
+                cloud_sync
+              </motion.span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsSearchVisible(!isSearchVisible)} 
+              className={`size-10 flex items-center justify-center transition-colors ${activeTab === TABS.DASHBOARD ? 'text-white' : 'text-content'}`}
+            >
+              <span className="material-symbols-outlined">{isSearchVisible ? 'close' : 'search'}</span>
+            </button>
             
             {/* Notification Bell Mobile */}
             <button 
@@ -623,6 +701,49 @@ function AppContent() {
               </AnimatePresence>
             </div>
           </div>
+
+          {/* Search Bar Mobile Expanded */}
+          <AnimatePresence>
+              {isSearchVisible && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-md border-b border-content/10 px-4 py-3 flex items-center gap-2 md:hidden"
+                  >
+                    <div className="flex-1 bg-content/5 rounded-xl flex items-center px-4 py-2">
+                      <span className="material-symbols-outlined text-dim text-sm mr-2">search</span>
+                      <input 
+                        autoFocus
+                        type="text"
+                        value={globalSearchQuery}
+                        onChange={(e) => {
+                          setGlobalSearchQuery(e.target.value);
+                          if (e.target.value && activeTab !== TABS.EXTRATO) {
+                            handleTabChange(TABS.EXTRATO);
+                          }
+                        }}
+                        placeholder="Buscar transações, categorias..."
+                        className="bg-transparent border-none outline-none text-sm w-full"
+                      />
+                      {globalSearchQuery && (
+                        <button onClick={() => setGlobalSearchQuery('')}>
+                          <span className="material-symbols-outlined text-dim text-sm">cancel</span>
+                        </button>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsSearchVisible(false);
+                        setGlobalSearchQuery('');
+                      }}
+                      className="text-xs font-bold text-primary px-2"
+                    >
+                      Cancelar
+                    </button>
+                  </motion.div>
+              )}
+          </AnimatePresence>
         </div>
 
         {/* Header Topo Desktop (Nome Usuário) */}
@@ -634,9 +755,19 @@ function AppContent() {
         `}>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold leading-tight">{activeTab}</h2>
+              {isSyncing && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full"
+                >
+                  <span className="material-symbols-outlined text-primary text-sm animate-spin-slow">sync</span>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-tighter">Sincronizando</span>
+                </motion.div>
+              )}
               <button 
                 onClick={() => setIsPrivacyMode(!isPrivacyMode)} 
-                className={`ml-2 size-10 flex items-center justify-center transition-colors rounded-full ${isPrivacyMode ? 'bg-primary/20 text-primary' : 'text-content/60 hover:text-content hover:bg-content/10'}`}
+                className={`ml-2 size-10 flex items-center justify-center transition-colors rounded-full ${isPrivacyMode ? 'bg-primary/20 text-primary' : (activeTab === TABS.DASHBOARD ? 'text-white hover:bg-white/10' : 'text-content/60 hover:text-content hover:bg-content/10')}`}
                 title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
               >
                 <span className="material-symbols-outlined">{isPrivacyMode ? 'visibility_off' : 'visibility'}</span>
@@ -651,7 +782,43 @@ function AppContent() {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center">
+                <AnimatePresence>
+                  {isSearchVisible && (
+                    <motion.div 
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: 240, opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      className="overflow-hidden bg-content/5 rounded-full flex items-center px-4 py-2 mr-2"
+                    >
+                      <input 
+                        autoFocus
+                        type="text"
+                        value={globalSearchQuery}
+                        onChange={(e) => {
+                          setGlobalSearchQuery(e.target.value);
+                          if (e.target.value && activeTab !== TABS.EXTRATO) {
+                            handleTabChange(TABS.EXTRATO);
+                          }
+                        }}
+                        placeholder="Buscar transações..."
+                        className="bg-transparent border-none outline-none text-sm w-full"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <button 
+                  onClick={() => {
+                    setIsSearchVisible(!isSearchVisible);
+                    if (isSearchVisible) setGlobalSearchQuery('');
+                  }}
+                  className={`relative size-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors ${activeTab === TABS.DASHBOARD ? 'text-white hover:bg-white/20' : 'text-content hover:bg-black/5 dark:hover:bg-white/10'}`}
+                >
+                  <span className="material-symbols-outlined">{isSearchVisible ? 'close' : 'search'}</span>
+                </button>
+              </div>
+
                {/* Notification Bell Desktop */}
               <button 
                   onClick={() => setIsNotificationPanelOpen(true)}
@@ -864,8 +1031,8 @@ function AppContent() {
           <button onClick={() => setActiveTab(TABS.EXTRATO)} className={`flex items-center justify-center transition-colors hover:bg-white/5 rounded-full w-10 h-10 ${activeTab === TABS.EXTRATO ? 'text-primary' : 'text-white/40 hover:text-white'}`}>
             <span className="material-symbols-outlined text-[26px]">receipt_long</span>
           </button>
-          <button onClick={() => setActiveTab(TABS.RELATORIOS)} className={`flex items-center justify-center transition-colors hover:bg-white/5 rounded-full w-10 h-10 ${activeTab === TABS.RELATORIOS ? 'text-primary' : 'text-white/40 hover:text-white'}`}>
-            <span className="material-symbols-outlined text-[26px]">pie_chart</span>
+          <button onClick={() => setActiveTab(TABS.ACCOUNTS)} className={`flex items-center justify-center transition-colors hover:bg-white/5 rounded-full w-10 h-10 ${activeTab === TABS.ACCOUNTS ? 'text-primary' : 'text-white/40 hover:text-white'}`}>
+            <span className="material-symbols-outlined text-[26px]">checklist</span>
           </button>
           <button onClick={() => setActiveTab(TABS.PERFIL)} className={`flex items-center justify-center transition-colors hover:bg-white/5 rounded-full w-10 h-10 ${activeTab === TABS.PERFIL ? 'text-primary' : 'text-white/40 hover:text-white'}`}>
             <span className="material-symbols-outlined text-[26px]">person</span>

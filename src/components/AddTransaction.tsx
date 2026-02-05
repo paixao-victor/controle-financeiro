@@ -349,7 +349,11 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                             <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">Subcategoria</label>
                                             <button onClick={() => setIsSubcategorySheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
                                                 <span className={subcategory ? 'text-content' : 'text-dim'}>
-                                                    {subcategory || 'Selecionar Subcategoria'}
+                                                    {(() => {
+                                                        if (!subcategory) return 'Selecionar Subcategoria';
+                                                        if (subcategory.includes(':')) return subcategory.split(':')[0].trim();
+                                                        return subcategory;
+                                                    })()}
                                                 </span>
                                                 <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
                                             </button>
@@ -358,7 +362,19 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                                 onClose={() => setIsSubcategorySheetOpen(false)}
                                                 title="Selecionar Subcategoria"
                                                 selectedValue={subcategory}
-                                                options={availableSubcategories.map(sub => ({ id: sub, label: sub, icon: 'subdirectory_arrow_right' }))}
+                                                options={availableSubcategories.map(sub => {
+                                                    const rawLabel = typeof sub === 'string' ? sub : sub.label;
+                                                    let subLabel = rawLabel;
+                                                    let subIcon = typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon;
+                                                    
+                                                    if (rawLabel.includes(':')) {
+                                                        const [name, icon] = rawLabel.split(':');
+                                                        subLabel = name.trim();
+                                                        subIcon = icon.trim();
+                                                    }
+                                                    
+                                                    return { id: rawLabel, label: subLabel, icon: subIcon };
+                                                })}
                                                 onSelect={(opt) => setSubcategory(opt.label)}
                                             />
                                         </div>
@@ -367,30 +383,6 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                 return null;
                             })()}
 
-                            {paymentMethod === 'banco' && (
-                                <div className="animate-in fade-in zoom-in-95 duration-200">
-                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">
-                                        {type === 'income' ? 'Conta de Destino' : 'Conta de Origem'}
-                                    </label>
-                                    <button onClick={() => setIsAccountSheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
-                                        <span className={targetAccount ? 'text-content' : 'text-dim'}>
-                                            {targetAccount || (type === 'income' ? 'Onde o dinheiro entra?' : 'De qual conta sai?')}
-                                        </span>
-                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors`}>expand_more</span>
-                                    </button>
-                                    <BottomSheetSelect 
-                                        isOpen={isAccountSheetOpen}
-                                        onClose={() => setIsAccountSheetOpen(false)}
-                                        title={type === 'income' ? "Conta de Destino" : "Conta de Origem"}
-                                        selectedValue={targetAccount}
-                                        options={ACCOUNTS.map((acc: { id: string; label: string }) => ({ id: acc.id, label: acc.label, icon: 'account_balance_wallet' }))}
-                                        onSelect={(opt) => setTargetAccount(opt.label)}
-                                    />
-                                    <p className={`text-[9px] font-bold mt-2 ml-1 ${type === 'income' ? 'text-primary' : 'text-red-500'}`}>
-                                        *O saldo desta conta será atualizado.
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -472,22 +464,53 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                         <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Método e Detalhes</div>
                         <div className="flex flex-col gap-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <label className="relative cursor-pointer">
+                                <label className="relative cursor-pointer group">
                                     <input type="radio" name="payment" className="peer sr-only" checked={paymentMethod === 'banco'} onChange={() => setPaymentMethod('banco')} />
-                                    <div className="p-3 nm-card rounded-2xl border-2 border-transparent peer-checked:border-primary/30 peer-checked:bg-primary/5 transition-all text-center flex flex-col items-center">
-                                        <span className={`material-symbols-outlined mb-1 ${paymentMethod === 'banco' ? 'text-primary' : 'text-dim'}`}>account_balance</span>
-                                        <div className="text-[10px] font-extrabold text-content truncate">Banco</div>
+                                    <div className="p-6 nm-card rounded-2xl border-2 border-transparent peer-checked:border-primary/30 peer-checked:bg-primary/5 transition-all text-center flex flex-col items-center group-hover:scale-105 active:scale-95">
+                                        <div className={`size-14 rounded-2xl flex items-center justify-center mb-3 transition-colors ${paymentMethod === 'banco' ? 'bg-primary text-secondary shadow-glow' : 'bg-content/5 text-dim'}`}>
+                                            <span className="material-symbols-outlined text-3xl">account_balance</span>
+                                        </div>
+                                        <div className="text-xs font-black text-content uppercase tracking-widest">Banco</div>
                                     </div>
                                 </label>
-                                <label className="relative cursor-pointer">
+                                <label className="relative cursor-pointer group">
                                     <input type="radio" name="payment" className="peer sr-only" checked={paymentMethod === 'cartao'} onChange={() => { setPaymentMethod('cartao'); setTargetAccount(''); }} />
-                                    <div className={`p-3 nm-card rounded-2xl border-2 border-transparent peer-checked:bg-opacity-5 transition-all text-center flex flex-col items-center 
-                                        ${type === 'income' ? 'peer-checked:border-primary/30 peer-checked:bg-primary' : 'peer-checked:border-red-500/30 peer-checked:bg-red-500'}`}>
-                                        <span className={`material-symbols-outlined mb-1 ${paymentMethod === 'cartao' ? (type === 'income' ? 'text-primary' : 'text-red-500') : 'text-dim'}`}>credit_card</span>
-                                        <div className="text-[10px] font-extrabold text-content truncate">Cartão</div>
+                                    <div className={`p-6 nm-card rounded-2xl border-2 border-transparent transition-all text-center flex flex-col items-center group-hover:scale-105 active:scale-95
+                                        ${paymentMethod === 'cartao' 
+                                            ? (type === 'income' ? 'border-primary/30 bg-primary/5' : 'border-red-500/30 bg-red-500/5') 
+                                            : ''}`}>
+                                        <div className={`size-14 rounded-2xl flex items-center justify-center mb-3 transition-colors 
+                                            ${paymentMethod === 'cartao' 
+                                                ? (type === 'income' ? 'bg-primary text-secondary shadow-glow' : 'bg-red-500 text-white shadow-glow') 
+                                                : 'bg-content/5 text-dim'}`}>
+                                            <span className="material-symbols-outlined text-3xl">credit_card</span>
+                                        </div>
+                                        <div className="text-xs font-black text-content uppercase tracking-widest">Cartão</div>
                                     </div>
                                 </label>
                             </div>
+                            
+                            {paymentMethod === 'banco' && (
+                                <div className="nm-card rounded-2xl p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2">
+                                        {type === 'income' ? 'Conta de Destino' : 'Conta de Origem'}
+                                    </label>
+                                    <button onClick={() => setIsAccountSheetOpen(true)} className="w-full h-14 px-5 nm-input border-none rounded-xl text-content font-black text-lg flex items-center justify-between group active:scale-[0.98] transition-all">
+                                        <span className={targetAccount ? 'text-content' : 'text-dim'}>
+                                            {targetAccount || (type === 'income' ? 'Onde entra?' : 'De onde sai?')}
+                                        </span>
+                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors`}>account_balance_wallet</span>
+                                    </button>
+                                    <BottomSheetSelect 
+                                        isOpen={isAccountSheetOpen}
+                                        onClose={() => setIsAccountSheetOpen(false)}
+                                        title={type === 'income' ? "Conta de Destino" : "Conta de Origem"}
+                                        selectedValue={targetAccount}
+                                        options={ACCOUNTS.map((acc: { id: string; label: string }) => ({ id: acc.id, label: acc.label, icon: 'account_balance_wallet' }))}
+                                        onSelect={(opt) => setTargetAccount(opt.label)}
+                                    />
+                                </div>
+                            )}
                             <div className="nm-card rounded-2xl p-4 space-y-4">
                                 {paymentMethod === 'cartao' && (
                                     <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">

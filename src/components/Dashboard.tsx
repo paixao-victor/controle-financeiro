@@ -581,6 +581,21 @@ const Dashboard = () => {
         }
     }, [loadedMonths]);
 
+    // Função Helper para Parsing de Subcategoria
+    const renderSubcategory = (sub: string) => {
+        if (!sub) return null;
+        if (sub.includes(':')) {
+            const [name, icon] = sub.split(':');
+            return (
+                <div className="flex items-center justify-center gap-1">
+                    {icon && <span className="material-symbols-outlined text-[inherit] opacity-80">{icon.trim()}</span>}
+                    <span className="truncate">{name.trim()}</span>
+                </div>
+            );
+        }
+        return <span className="truncate">{sub}</span>;
+    };
+
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const container = e.currentTarget;
         if (isAutoScrolling) return;
@@ -1004,7 +1019,7 @@ const Dashboard = () => {
                                         </div>
                                     </div>
                                     <span className="text-[9px] md:text-[10px] font-black text-dim group-hover:text-primary truncate w-full text-center uppercase tracking-tighter">
-                                        {pred.subcategory || pred.description || pred.category}
+                                        {renderSubcategory(pred.subcategory) || pred.description || pred.category}
                                     </span>
                                 </div>
                             ))}
@@ -1061,7 +1076,7 @@ const Dashboard = () => {
                                     </div>
                                 </div>
                                 <span className="text-[10px] xl:text-[11px] font-bold text-content dark:text-white group-hover:text-primary truncate w-full text-center uppercase tracking-tighter drop-shadow-md py-1 px-2 rounded-lg bg-white/5 border border-white/5">
-                                    {pred.subcategory || pred.description || pred.category}
+                                    {renderSubcategory(pred.subcategory) || pred.description || pred.category}
                                 </span>
                             </div>
                         ))}
@@ -1528,7 +1543,9 @@ const Dashboard = () => {
                                     (detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions).map((t: any, idx: number) => (
                                         <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-content">{t.description || t.subcategory || t.category}</span>
+                                                <span className="text-sm font-bold text-content">
+                                                    {t.description || (t.subcategory?.includes(':') ? t.subcategory.split(':')[0].trim() : t.subcategory) || t.category}
+                                                </span>
                                                 <span className="text-[9px] text-dim uppercase font-bold">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
                                             </div>
                                             <span className="text-sm font-black text-content">{formatCurrency(t.amount)}</span>

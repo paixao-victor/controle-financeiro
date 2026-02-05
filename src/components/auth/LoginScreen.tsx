@@ -21,9 +21,9 @@ const LoginScreen: React.FC = () => {
 
     return (
         <div className="font-sans antialiased overflow-hidden min-h-screen bg-[#F8FAFC]">
-            <div className="fixed top-0 left-0 w-full h-[45%] bg-[#47F425] z-0 rounded-b-[48px] overflow-hidden">
-                <div className="absolute inset-0 opacity-15 pointer-events-none animate-bg-float">
-                    <div className="grid grid-cols-4 gap-12 p-8">
+            <div className="fixed top-0 left-0 w-full h-[45%] bg-[#47F425] z-0 rounded-b-[28px] overflow-hidden">
+                <div className="absolute inset-0 opacity-35 pointer-events-none animate-bg-float flex items-center justify-center">
+                    <div className="grid size-120 grid-cols-4 gap-12 p-2 max-w-lg mx-auto place-items-center">
                         {['payments', 'trending_up', 'account_balance', 'currency_exchange', 
                           'receipt_long', 'savings', 'bar_chart', 'credit_card', 
                           'monitoring', 'account_balance_wallet', 'pie_chart', 'universal_currency_alt']
@@ -113,7 +113,7 @@ const LoginScreen: React.FC = () => {
                         <div className="grid grid-cols-1">
                             <button 
                                 onClick={async () => {
-                                    const emailInput = prompt('Digite seu e-mail do Google (simulado):');
+                                    const emailInput = prompt('// Em Construção// Digite seu e-mail do Google (simulado):');
                                     if (emailInput) {
                                         setIsLoading(true);
                                         try {
