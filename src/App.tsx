@@ -54,7 +54,8 @@ const NavItem = ({ icon, label, isActive, onClick, badge, isExpanded = true }: N
     <button
       onClick={onClick}
       className={`
-                group relative flex items-center w-full h-12 rounded-xl transition-all duration-300 px-4
+                group relative flex items-center w-full h-12 rounded-xl transition-all duration-300
+                ${isExpanded ? 'px-4' : 'justify-center px-0'}
                 ${isActive
           ? 'bg-gray-100 dark:bg-white/10 text-content shadow-soft dark:shadow-glow'
           : 'opacity-50 hover:opacity-100 hover:bg-gray-50 dark:hover:bg-white/5'
@@ -255,10 +256,7 @@ function AppContent() {
     setIsProfilePopupOpen(false);
   };
 
-  const confirmLogout = () => {
-      logout();
-      setShowLogoutConfirm(false);
-  };
+
 
   const onNavigateFromProfile = (target: string) => {
     if (target === 'Cartões') {
@@ -509,7 +507,7 @@ function AppContent() {
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Principal</span>
             ) : (
-              <div className="w-8 h-[2px] bg-dim/20 rounded-full mx-auto" />
+              <div className="w-8 h-[2px] bg-gray-200 dark:bg-white/10 rounded-full mx-auto" />
             )}
           </div>
           
@@ -532,8 +530,9 @@ function AppContent() {
             onClick={() => setIsAddTransactionOpen(true)}
             className={`
               my-4 flex items-center gap-3 bg-primary text-secondary font-bold rounded-2xl transition-all hover:brightness-110 active:scale-95 shadow-lg shadow-primary/20
-              ${!isExpanded ? 'size-12 justify-center' : 'w-full py-4 px-6'}
+              ${!isExpanded ? 'size-12 justify-center mx-auto' : 'w-full py-4 px-6'}
             `}
+            title={!isExpanded ? "Nova Transação" : ""}
           >
             <span className="material-symbols-outlined text-2xl font-bold">add</span>
             {isExpanded && <span className="uppercase tracking-widest text-[11px]">Nova Transação</span>}
@@ -566,7 +565,7 @@ function AppContent() {
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Gerenciamento</span>
             ) : (
-              <div className="w-8 h-[2px] bg-dim/20 rounded-full mx-auto" />
+              <div className="w-8 h-[2px] bg-gray-200 dark:bg-white/10 rounded-full mx-auto" />
             )}
           </div>
           <NavItem

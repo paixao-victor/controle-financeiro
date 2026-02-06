@@ -232,7 +232,7 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all group ${isEditMode ? 'bg-primary/20 text-primary border-primary/30' : 'bg-surface hover:bg-surface/80 border-transparent hover:border-primary/20'}`}
                         >
                             <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">done_all</span>
-                            <span className="hidden md:block text-xs font-black uppercase tracking-widest text-dim group-hover:text-content">Lidas</span>
+                            <span className="hidden md:block text-xs font-black uppercase tracking-widest text-dim group-hover:text-content">Marcar Todas como Lidas</span>
                         </button>
                     )}
                 </div>

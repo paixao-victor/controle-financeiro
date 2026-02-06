@@ -94,7 +94,7 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
     
     const handleDragStart = () => setDragStarted(true);
 
-    const handleDragEnd = (_event: any, info: any, cardId: string, currentIndex: number) => {
+    const handleDragEnd = (_event: any, info: any, _cardId: string, currentIndex: number) => {
         setTimeout(() => setDragStarted(false), 50);
         
         const yOffset = info.offset.y;

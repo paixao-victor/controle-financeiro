@@ -56,7 +56,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, onClose, 
                                 onClick={markAllAsRead}
                                 className="text-[10px] sm:text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
                             >
-                                Marcar lidas
+                                Todas lidas
                             </button>
                         )}
                         <button onClick={onClose} className="rounded-full size-6 flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors">

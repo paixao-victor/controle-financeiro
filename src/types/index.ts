@@ -67,6 +67,7 @@ export interface Transaction {
     amount: number;
     date: string; // YYYY-MM-DD
     description?: string | null;
+    icon?: string; // Added to fix build error
     isRecurring: boolean;
     recurrenceRule?: RecurrenceRule;
     paymentMethod?: 'banco' | 'cartao' | 'dinheiro'; // Updated to include 'dinheiro' as per request

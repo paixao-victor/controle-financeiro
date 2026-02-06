@@ -597,20 +597,7 @@ const Dashboard = () => {
         }
     }, [loadedMonths]);
 
-    // Função Helper para Parsing de Subcategoria
-    const renderSubcategory = (sub: string) => {
-        if (!sub) return null;
-        if (sub.includes(':')) {
-            const [name, icon] = sub.split(':');
-            return (
-                <div className="flex items-center justify-center gap-1">
-                    {icon && <span className="material-symbols-outlined text-inherit opacity-80">{icon.trim()}</span>}
-                    <span className="truncate">{name.trim()}</span>
-                </div>
-            );
-        }
-        return <span className="truncate">{sub}</span>;
-    };
+
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const container = e.currentTarget;
