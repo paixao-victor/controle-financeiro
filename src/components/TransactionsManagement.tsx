@@ -338,7 +338,7 @@ const TransactionsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                 {showDeleteConfirm && (
                     <div 
                         onClick={() => setShowDeleteConfirm(null)}
-                        className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                        className="fixed inset-0 z-1050 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
                     >
                         <motion.div 
                             onClick={(e) => e.stopPropagation()}

@@ -10,7 +10,7 @@ interface NotificationsCenterProps {
 }
 
 const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => {
-    const { notifications, markAsRead, markAllAsRead, deleteNotification, settings, updateSettings } = useNotifications();
+    const { notifications, markAsRead, markAllAsRead, deleteNotification, settings, updateSettings, markAsUnread } = useNotifications();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isDaysSheetOpen, setIsDaysSheetOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -61,22 +61,56 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                     <h4 className={`text-base font-bold truncate ${!notification.read ? 'text-content' : 'text-dim'}`}>
                         {notification.title}
                     </h4>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-2 min-w-[80px]">
                         <span className="text-[10px] font-bold text-dim/50 uppercase tracking-widest whitespace-nowrap">
-                            {formatDistanceToNow(new Date(notification.date), { addSuffix: true, locale: ptBR })}
+                            {(() => {
+                                const daysSince = Math.floor((new Date().getTime() - new Date(notification.date).getTime()) / (1000 * 3600 * 24));
+                                return daysSince > 5 
+                                    ? new Date(notification.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                                    : formatDistanceToNow(new Date(notification.date), { addSuffix: true, locale: ptBR });
+                            })()}
                         </span>
                         
-                        {/* Ações em Modo de Edição */}
+                        {/* Actions (Desktop Hover) */}
+                        {!isEditMode && (
+                            <div className={`hidden md:flex items-center gap-1 transition-opacity ${notification.read ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
+                                    className="p-1.5 rounded-full hover:bg-red-500/10 text-dim/40 hover:text-red-500 transition-colors"
+                                    title="Excluir"
+                                >
+                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        notification.read ? markAsUnread(notification.id) : markAsRead(notification.id); 
+                                    }}
+                                    className={`p-1.5 rounded-full hover:bg-primary/10 transition-colors ${!notification.read ? 'text-primary' : 'text-dim/40 hover:text-primary'}`}
+                                    title={notification.read ? "Marcar como não lida" : "Marcar como lida"}
+                                >
+                                    <span className="material-symbols-outlined text-lg">
+                                        {notification.read ? 'check_box' : 'check_box_outline_blank'}
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Actions (Edit Mode) */}
                         {isEditMode && (
                             <div className="flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                {!notification.read && (
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
-                                        className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-secondary transition-all active:scale-90"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">check</span>
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        notification.read ? markAsUnread(notification.id) : markAsRead(notification.id); 
+                                    }}
+                                    className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-90 ${!notification.read ? 'bg-primary/10 text-primary hover:bg-primary hover:text-secondary' : 'bg-black/10 dark:bg-white/10 text-dim hover:text-primary'}`}
+                                    title={notification.read ? "Marcar como não lida" : "Marcar como lida"}
+                                >
+                                    <span className="material-symbols-outlined text-sm">
+                                        {notification.read ? 'check_box' : 'check_box_outline_blank'}
+                                    </span>
+                                </button>
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
                                     className="size-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90"
@@ -97,31 +131,11 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onBack }) => 
                 )}
             </div>
 
-            {/* Actions (Hover) - Ocultar no modo de edição pois já estão expostas */}
-            {!isEditMode && (
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
-                        className="size-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
-                        title="Excluir"
-                    >
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                     {!notification.read && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
-                            className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-secondary transition-colors"
-                            title="Marcar como lida"
-                        >
-                            <span className="material-symbols-outlined text-sm">check</span>
-                        </button>
-                     )}
-                </div>
-            )}
+            {/* Remove Old Absolute Actions Block */}
             
             {/* Unread Indicator */}
             {!notification.read && (
-                <div className="absolute top-5 right-5 size-2 bg-primary rounded-full animate-pulse group-hover:opacity-0 transition-opacity" />
+                <div className="absolute top-5 right-5 size-2 bg-primary rounded-full animate-pulse group-hover:opacity-0 transition-opacity md:hidden" />
             )}
         </motion.div>
     );

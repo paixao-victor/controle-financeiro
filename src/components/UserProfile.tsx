@@ -12,22 +12,24 @@ import PredictedExpensesManagement from './PredictedExpensesManagement';
 import PredictedIncomesManagement from './PredictedIncomesManagement';
 import CardsManagement from './CardsManagement';
 import Modal from './Modal';
-
+import ConfirmationModal from './ConfirmationModal';
 interface UserProfileProps {
     onNavigate: (tab: any) => void;
     onPhotoClick: () => void;
     profileAction?: any;
     setProfileAction?: any;
+    onRequestLogout?: () => void;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ 
     onNavigate, 
     onPhotoClick,
     profileAction,
-    setProfileAction
+    setProfileAction,
+    onRequestLogout
 }) => {
     const { addTransaction, calculateCurrentBalance, transactions, cards, accounts, updateAccount } = useTransactions() as any;
-    const { logout, user, updateUser } = useAuth();
+    const { logout, user, updateUser, login } = useAuth();
     
     // Values from auth
     const userName = user?.name || 'Usuário';
@@ -334,7 +336,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                         onClick={() => {
                             setShowMainPhotoOptions(!showMainPhotoOptions);
                         }}
-                        className="absolute bottom-1 right-1 size-10 bg-surface rounded-full shadow-lg flex items-center justify-center text-primary border border-white/10 hover:scale-110 transition-transform z-[100]"
+                        className="absolute bottom-1 right-1 size-10 bg-surface rounded-full shadow-lg flex items-center justify-center text-primary border border-white/10 hover:scale-110 transition-transform z-100"
                         style={{ transform: 'translateZ(150px)', transformStyle: 'preserve-3d' }}
                     >
                         <span className="material-symbols-outlined text-base">photo_camera</span>
@@ -389,7 +391,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                     </span>
                 </div>
 
-                <div className="flex grid grid-cols-2 lg:grid-cols-1 md:grid-cols-2 gap-6 md:contents">
+                <div className="grid grid-cols-2 lg:grid-cols-1 md:grid-cols-2 gap-6 md:contents">
                     <div className="nm-card p-6 flex flex-col items-center justify-center gap-4">
                         <span className="text-[10px] font-black text-dim uppercase tracking-widest opacity-60 text-center">Uso da Renda</span>
                         <LiquidGauge 
@@ -524,13 +526,13 @@ const UserProfile: React.FC<UserProfileProps> = ({
                         <div className="nm-card p-4 space-y-4">
                             <button 
                                 onClick={() => setShowSwitchConfirm(true)}
-                                className="w-full flex items-center gap-3 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl transition-all text-red-500 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/10 group"
+                                className="w-full flex items-center gap-3 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl transition-all text-red-500 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/10 group top-level-logout-btn"
                             >
                                 <span className="material-symbols-outlined text-lg">sync_alt</span>
                                 Trocar de Conta
                             </button>
                             <button 
-                                onClick={logout}
+                                onClick={() => onRequestLogout ? onRequestLogout() : logout()}
                                 className="w-full flex items-center gap-3 p-4 bg-red-500/5 hover:bg-red-500/10 rounded-2xl transition-all text-red-500 font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/10"
                             >
                                 <span className="material-symbols-outlined text-lg">logout</span>
@@ -588,7 +590,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                                         {/* Menu de Opções de Foto */}
                                         {showPhotoOptions && (
                                             <>
-                                                <div className="fixed inset-0 z-10" onClick={() => setShowPhotoOptions(false)} />
+                                                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowPhotoOptions(false); }} />
                                                 <div className="absolute bottom-full right-0 mb-2 w-40 bg-surface border border-white/10 rounded-2xl shadow-2xl p-2 z-20 animate-in fade-in slide-in-from-bottom-2">
                                                     {tempPhoto && (
                                                         <button 
@@ -680,7 +682,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
             {/* Modal de Edição de Saldo */}
             {isEditingBalance && (
                  <div 
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={() => setIsEditingBalance(false)}
                 >
                     <div 
@@ -1036,10 +1038,22 @@ const UserProfile: React.FC<UserProfileProps> = ({
                                     }
                                     
                                     try {
-                                        // Validar senha atual
-                                        if (user?.password && passwords.current !== user.password) {
-                                            alert('A senha atual está incorreta!');
-                                            return;
+                                        // Validar senha atual tentando fazer login
+                                        if (passwords.current) {
+                                            if (user?.username) {
+                                                try {
+                                                    // Tenta autenticar novamente para validar a senha atual
+                                                    await login(user.username, passwords.current);
+                                                } catch (e) {
+                                                    alert('A senha atual está incorreta!');
+                                                    return;
+                                                }
+                                            }
+                                        } else {
+                                            // Se não digitou senha atual, bloquear (exceto se for usuário sem senha/google, mas por segurança pedimos)
+                                            // Se for conta Google, geralmente não troca senha aqui, mas vamos assumir fluxo padrão
+                                             alert('Por favor, informe a senha atual.');
+                                             return;
                                         }
 
                                         // A função updateUser já envia para o cloud em AuthContext
@@ -1069,38 +1083,22 @@ const UserProfile: React.FC<UserProfileProps> = ({
                 </div>
             )}
 
-            {/* Modal de Confirmação de Troca de Conta */}
-            {showSwitchConfirm && (
-                <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowSwitchConfirm(false)}>
-                    <div className="nm-card w-full max-w-sm p-8 flex flex-col gap-6 animate-in zoom-in-95 duration-200 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="size-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <span className="material-symbols-outlined text-4xl">sync_alt</span>
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-black text-content uppercase tracking-widest">Trocar de Conta?</h3>
-                            <p className="text-dim text-sm mt-3 font-bold">Você vai sair da conta atual para entrar em outra.</p>
-                        </div>
-                        
-                        <div className="flex flex-col gap-3">
-                            <button 
-                                onClick={() => {
-                                    setShowSwitchConfirm(false);
-                                    logout();
-                                }}
-                                className="w-full bg-red-500 text-white h-14 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:brightness-110 active:scale-95 transition-all shadow-lg"
-                            >
-                                Sim, Desejo Sair
-                            </button>
-                            <button 
-                                onClick={() => setShowSwitchConfirm(false)}
-                                className="w-full text-dim font-black py-2 hover:text-content transition-colors uppercase text-[10px] tracking-widest"
-                            >
-                                Manter Logado
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal de Confirmação de Troca de Conta (Padronizado) */}
+            <ConfirmationModal
+                isOpen={showSwitchConfirm}
+                onClose={() => setShowSwitchConfirm(false)}
+                onConfirm={() => {
+                    setShowSwitchConfirm(false);
+                    logout();
+                }}
+                title="Trocar de Conta?"
+                message="Você vai sair da conta atual para entrar em outra."
+                confirmText="Sim, Trocar Conta"
+                cancelText="Manter Logado"
+                icon="sync_alt"
+                type="warning"
+            />
+
 
             {/* Modais de Gerenciamento */}
             <Modal isOpen={profileAction === 'categories'} onClose={() => setProfileAction?.(null)}>

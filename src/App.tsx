@@ -14,6 +14,7 @@ import MyCards from './components/MyCards';
 import AddTransaction from '@/components/AddTransaction';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Modal from '@/components/Modal';
+import ConfirmationModal from './components/ConfirmationModal';
 import UserProfile from '@/components/UserProfile';
 import Settings from '@/components/Settings';
 
@@ -209,6 +210,8 @@ function AppContent() {
 
   // Fecha o menu mobile ao trocar de aba e atualiza histórico
   const handleTabChange = (tab: ActiveTab) => {
+    window.scrollTo(0, 0); // Reset scroll position
+    
     // Desativa modo de edição ao sair do Extrato
     if (activeTab === TABS.EXTRATO && tab !== TABS.EXTRATO) {
       setIsEditMode(false);
@@ -223,6 +226,38 @@ function AppContent() {
     setActiveTab(tab);
     setMobileMenuOpen(false);
     setIsNotificationPanelOpen(false); // Close notification panel on tab change
+  };
+
+  // Close Profile Popup on Click Outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as HTMLElement;
+        if (isProfilePopupOpen && !target.closest('#profile-popup') && !target.closest('#profile-trigger')) {
+            setIsProfilePopupOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfilePopupOpen]);
+
+  // Logout Modal State
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false); // Switch Account Modal State
+
+  const handleLogoutRequest = () => {
+    setShowLogoutConfirm(true);
+    setMobileMenuOpen(false); // Close mobile menu if open
+    setIsProfilePopupOpen(false); // Close profile popup if open
+  };
+
+  const handleSwitchRequest = () => {
+    setShowSwitchConfirm(true);
+    setIsProfilePopupOpen(false);
+  };
+
+  const confirmLogout = () => {
+      logout();
+      setShowLogoutConfirm(false);
   };
 
   const onNavigateFromProfile = (target: string) => {
@@ -271,6 +306,7 @@ function AppContent() {
             onPhotoClick={() => setIsPhotoModalOpen(true)}
             profileAction={profileAction}
             setProfileAction={setProfileAction}
+            onRequestLogout={handleLogoutRequest}
           />
         );
       case TABS.CONFIG:
@@ -293,6 +329,38 @@ function AppContent() {
       <AnimatePresence>
         {showSplash && <SplashScreen key="splash" />}
       </AnimatePresence>
+      
+      {/* Modal de Confirmação de Troca de Conta (Padronizado) */}
+      <ConfirmationModal
+          isOpen={showSwitchConfirm}
+          onClose={() => setShowSwitchConfirm(false)}
+          onConfirm={() => {
+              setShowSwitchConfirm(false);
+              logout();
+          }}
+          title="Trocar de Conta?"
+          message="Você vai sair da conta atual para entrar em outra."
+          confirmText="Sim, Trocar Conta"
+          cancelText="Manter Logado"
+          icon="sync_alt"
+          type="warning"
+      />
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+          isOpen={showLogoutConfirm}
+          onClose={() => setShowLogoutConfirm(false)}
+          onConfirm={() => {
+              setShowLogoutConfirm(false);
+              logout();
+          }}
+          title="Deseja Sair?"
+          message="Você será desconectado da sua conta atual."
+          confirmText="Sair do App"
+          cancelText="Cancelar"
+          icon="logout"
+          type="danger"
+      />
 
 
       <div className="flex h-screen w-full overflow-hidden bg-background text-content font-display selection:bg-primary/30 transition-colors duration-300">
@@ -382,7 +450,7 @@ function AppContent() {
            <button
              onClick={(e) => {
                e.stopPropagation();
-                 if (window.confirm('Tem certeza que deseja sair?')) logout();
+               handleLogoutRequest();
              }}
              className="w-full flex items-center h-12 px-4 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors mt-2"
            >
@@ -401,7 +469,7 @@ function AppContent() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={toggleSidebar}
-        className={`hidden md:flex flex-col glass-dock z-[60] h-full fixed top-0 left-0 transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64 shadow-2xl' : 'w-20'} items-stretch border-r border-white/5`}
+        className={`hidden md:flex flex-col glass-dock z-60 h-full fixed top-0 left-0 transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64 shadow-2xl' : 'w-20'} items-stretch border-r border-white/5`}
       >
         <div className={`mb-8 flex items-center px-4 justify-between gap-3 relative h-12`}>
           <div 
@@ -546,7 +614,7 @@ function AppContent() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-                if (window.confirm('Tem certeza que deseja sair?')) logout();
+              handleLogoutRequest();
             }}
             className={`flex items-center h-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all mt-2 px-4`}
           >
@@ -899,7 +967,7 @@ function AppContent() {
                             Ver Perfil Completo
                           </button>
                           <button 
-                            onClick={logout}
+                            onClick={handleSwitchRequest}
                             className="w-full py-4 bg-red-500/10 text-red-500 font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                           >
                             <span className="material-symbols-outlined text-sm">sync_alt</span>

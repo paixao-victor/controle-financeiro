@@ -36,6 +36,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [targetAccount, setTargetAccount] = useState('');
     const [selectedCardId, setSelectedCardId] = useState('');
     const [cardPaymentOption, setCardPaymentOption] = useState<'debit' | 'credit'>('credit');
+    // Ensure notes are empty by default for new transactions, as requested
     const [notes, setNotes] = useState(initialData?.notes || '');
 
     const { addTransaction, availableCategories, cards, accounts } = useTransactions();

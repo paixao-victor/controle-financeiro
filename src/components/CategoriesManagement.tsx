@@ -462,7 +462,7 @@ const CategoriesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                                                             setIconSelectorTarget('sub');
                                                                             setIsIconSelectorOpen(true);
                                                                         }}
-                                                                        className="size-8 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center text-dim hover:text-primary transition-colors flex-shrink-0"
+                                                                        className="size-8 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center text-dim hover:text-primary transition-colors shrink-0"
                                                                     >
                                                                         <span className="material-symbols-outlined text-base">{subIcon}</span>
                                                                     </button>

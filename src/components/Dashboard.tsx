@@ -375,7 +375,20 @@ const Dashboard = () => {
         const fuelPrediction = recurringDefinitions.find((rd: any) => rd.category.toLowerCase() === 'combustível');
         
         // Final monthlyPredictions with grouped fuel
-        const filteredExpenses = currentMonthTransactions.filter(t => t.type === 'expense' && t.category.toLowerCase() !== 'combustível' && !t.cardId);
+        const filteredExpenses = currentMonthTransactions.filter(t => t.type === 'expense' && t.category.toLowerCase() !== 'combustível' && !t.cardId)
+            .map(t => {
+                const [subLabel, subIcon] = (t.subcategory || '').split(':');
+                const cleanDescription = subLabel || t.subcategory || t.description;
+                
+                return {
+                    ...t,
+                    // Prioritize parsed subcategory label for clean display
+                    description: cleanDescription,
+                    subcategory: cleanDescription, // Update subcategory to be clean too if used elsewhere
+                    // Use parsed icon if priority icon is missing or to override
+                    icon: subIcon || t.icon
+                };
+            });
         
         const monthlyPredictions = [
             ...filteredExpenses,
@@ -402,17 +415,20 @@ const Dashboard = () => {
                 .map((rd: any) => {
                     const lastDay = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
                     const actualDay = Math.min(rd.dueDay, lastDay);
+                    
+                    const [subLabel, subIcon] = (rd.subcategory || '').split(':'); // Parse Label:Icon
+
                     return {
                         id: `pred-${rd.id}`,
-                        description: rd.subcategory || rd.name,
-                        subcategory: rd.subcategory || rd.name,
+                        description: rd.notes || subLabel || rd.name,
+                        subcategory: subLabel || rd.name,
                         amount: rd.amount,
                         category: rd.category,
                         date: new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), actualDay).toISOString(),
                         isPrediction: true,
                         notes: rd.notes || '',
                         color: rd.color,
-                        icon: rd.icon, // Use the specific icon chosen by user
+                        icon: rd.icon || subIcon, // Use parsed icon if priority icon is missing
                         predictedAmount: getSubcategoryAverage(rd.subcategory || rd.name, rd.category) || rd.amount
                     };
                 }),
@@ -588,7 +604,7 @@ const Dashboard = () => {
             const [name, icon] = sub.split(':');
             return (
                 <div className="flex items-center justify-center gap-1">
-                    {icon && <span className="material-symbols-outlined text-[inherit] opacity-80">{icon.trim()}</span>}
+                    {icon && <span className="material-symbols-outlined text-inherit opacity-80">{icon.trim()}</span>}
                     <span className="truncate">{name.trim()}</span>
                 </div>
             );
@@ -897,7 +913,7 @@ const Dashboard = () => {
                 <div className="lg:hidden w-[calc(100%+3rem)] -mx-6 -mt-25 mb-1 relative z-20">
                     <div className="flex justify-between mx-6 items-center mb-1 px-1">
                         <span 
-                            onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Contas a Pagar' }))}
+                            onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Contas' }))}
                             className="text-[10px] font-black text-white/40 uppercase tracking-widest"
                         >
                             Contas Fixas a Vencer
@@ -909,7 +925,7 @@ const Dashboard = () => {
                         ) : (
                             stats.accountsPayable.map((bill: any) => (
                                 <div key={bill.id} onClick={() => setBillActionMenu({ isOpen: true, bill })} 
-                                    className="shrink-0 relative w-[220px] rounded-[2rem] p-5 shadow-xl border-2 backdrop-blur-md transition-all cursor-pointer hover:brightness-110 active:scale-95"
+                                    className="shrink-0 relative w-[220px] rounded-3xl p-5 shadow-xl border-2 backdrop-blur-md transition-all cursor-pointer hover:brightness-110 active:scale-95"
                                     style={{ 
                                         backgroundColor: bill.color || '#ffffff05',
                                         borderColor: bill.circleStatus === 'overdue' || bill.circleStatus === 'urgent' 
@@ -928,7 +944,7 @@ const Dashboard = () => {
                                             <p className="text-[9px] font-bold text-dim mt-1 uppercase">{format(new Date(bill.date), 'dd/MM')}</p>
                                         </div>
                                     </div>
-                                    <h4 className="text-[12px] font-black text-content uppercase tracking-tight mb-0.5 truncate">{bill.subcategory || bill.description}</h4>
+                                    <h4 className="text-[12px] font-black text-content uppercase tracking-tight mb-0.5 truncate">{bill.subcategory ? bill.subcategory.split(':')[0] : bill.description}</h4>
                                     <p className="text-2xl font-black text-content tracking-tighter">{formatCurrency(bill.amount)}</p>
                                 </div>
                             ))
@@ -940,8 +956,8 @@ const Dashboard = () => {
                 <div className="lg:hidden w-[calc(100%+3rem)] -mx-6 -mt-10 mb-2 relative z-25">
                     <div className="flex justify-between mx-6 items-center mb-1 px-1">
                         <span 
-                            onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Meus Cartões' }))}
-                            className="text-[10px] font-black text-white/40 uppercase tracking-widest"
+                            onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Cartões' }))}
+                            className="text-[10px] font-black uppercase tracking-widest"
                         >
                             Cartões
                         </span>
@@ -1014,12 +1030,12 @@ const Dashboard = () => {
                                             }`}
                                         >
                                             <span className="material-symbols-outlined text-2xl md:text-3xl">
-                                                {getCategoryIcon(pred.category)}
+                                                {pred.icon || getCategoryIcon(pred.category)}
                                             </span>
                                         </div>
                                     </div>
                                     <span className="text-[9px] md:text-[10px] font-black text-dim group-hover:text-primary truncate w-full text-center uppercase tracking-tighter">
-                                        {renderSubcategory(pred.subcategory) || pred.description || pred.category}
+                                        {pred.description || pred.subcategory || pred.category}
                                     </span>
                                 </div>
                             ))}
@@ -1071,12 +1087,12 @@ const Dashboard = () => {
                                         }`}
                                     >
                                         <span className="material-symbols-outlined text-3xl xl:text-4xl">
-                                            {getCategoryIcon(pred.category)}
+                                            {pred.icon || getCategoryIcon(pred.category)}
                                         </span>
                                     </div>
                                 </div>
                                 <span className="text-[10px] xl:text-[11px] font-bold text-content dark:text-white group-hover:text-primary truncate w-full text-center uppercase tracking-tighter drop-shadow-md py-1 px-2 rounded-lg bg-white/5 border border-white/5">
-                                    {renderSubcategory(pred.subcategory) || pred.description || pred.category}
+                                    {pred.description || pred.subcategory || pred.category}
                                 </span>
                             </div>
                         ))}
@@ -1356,7 +1372,7 @@ const Dashboard = () => {
                             {selectedPrediction.circleStatus !== 'paid' && (
                                 <button 
                                     onClick={() => handlePayPrediction(selectedPrediction)}
-                                    className="w-full py-6 bg-primary text-secondary rounded-[1.5rem] font-black uppercase tracking-widest shadow-glow active:scale-95 transition-all flex items-center justify-center gap-3 text-sm"
+                                    className="w-full py-6 bg-primary text-secondary rounded-3xl font-black uppercase tracking-widest shadow-glow active:scale-95 transition-all flex items-center justify-center gap-3 text-sm"
                                 >
                                     <span className="material-symbols-outlined font-black">payments</span>
                                     Confirmar Gastos/Pagamento
@@ -1364,7 +1380,7 @@ const Dashboard = () => {
                             )}
                             <button 
                                 onClick={() => setSelectedPrediction(null)}
-                                className="w-full py-6 bg-black/5 dark:bg-white/5 text-dim rounded-[1.5rem] font-black uppercase tracking-widest hover:text-content transition-all text-sm"
+                                className="w-full py-6 bg-black/5 dark:bg-white/5 text-dim rounded-3xl font-black uppercase tracking-widest hover:text-content transition-all text-sm"
                             >
                                 Fechar
                             </button>

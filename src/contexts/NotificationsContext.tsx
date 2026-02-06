@@ -13,6 +13,7 @@ interface NotificationsContextType {
     markAsRead: (id: string) => void;
     markAllAsRead: () => void;
     deleteNotification: (id: string) => void;
+    markAsUnread: (id: string) => void;
     settings: NotificationSettings;
     updateSettings: (settings: Partial<NotificationSettings>) => void;
     addSystemNotification: (notif: Omit<AppNotification, 'id' | 'read' | 'date'>) => void;
@@ -187,6 +188,10 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
+    const markAsUnread = (id: string) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
+    };
+
     const updateSettings = (newSettings: Partial<NotificationSettings>) => {
         setSettings(prev => ({ ...prev, ...newSettings }));
     };
@@ -197,6 +202,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
             unreadCount,
             markAsRead,
             markAllAsRead,
+            markAsUnread,
             deleteNotification,
             settings,
             updateSettings,

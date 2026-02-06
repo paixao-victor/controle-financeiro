@@ -94,17 +94,24 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
     
     const handleDragStart = () => setDragStarted(true);
 
-    const handleDragEnd = (_event: any, info: any, cardId: string) => {
+    const handleDragEnd = (_event: any, info: any, cardId: string, currentIndex: number) => {
         setTimeout(() => setDragStarted(false), 50);
         
-        // Se arrastou significativamente para os lados ou para cima/baixo
-        if (Math.abs(info.offset.x) > 100 || Math.abs(info.offset.y) > 100) {
-            setCardStack(prev => {
-                const card = prev.find(c => c.id === cardId);
-                const others = prev.filter(c => c.id !== cardId);
-                if (!card) return prev;
-                return [...others, card]; // Move arrastado para o fim da pilha (fundo)
-            });
+        const yOffset = info.offset.y;
+        const rowHeight = 40; // Altura visual de cada passo
+        const movedRows = Math.round(yOffset / rowHeight);
+        
+        if (movedRows !== 0) {
+            const newIndex = Math.max(0, Math.min(cardStack.length - 1, currentIndex + movedRows));
+            
+            if (newIndex !== currentIndex) {
+                setCardStack(prev => {
+                    const newStack = [...prev];
+                    const [movedCard] = newStack.splice(currentIndex, 1);
+                    newStack.splice(newIndex, 0, movedCard);
+                    return newStack;
+                });
+            }
         }
     };
 
@@ -158,11 +165,11 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
                             return (
                                 <motion.div
                                     key={card.id}
-                                    drag={i === 0}
-                                    dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                                    dragElastic={0.7}
+                                    drag="y"
+                                    dragConstraints={{ top: -((i) * 40), bottom: (cardStack.length - 1 - i) * 40 }}
+                                    dragElastic={0.1}
                                     onDragStart={handleDragStart}
-                                    onDragEnd={(e, info) => handleDragEnd(e, info, card.id)}
+                                    onDragEnd={(e, info) => handleDragEnd(e, info, card.id, i)}
                                     initial={{ y: 100 * i, scale: 0.8, opacity: 0 }}
                                     animate={{ 
                                         y: i * 40, 

@@ -17,6 +17,13 @@ import { Button } from '@/components/ui/Button';
 import EditTransactionModal from './EditTransactionModal';
 import Modal from './Modal';
 
+// Helper to fix timezone issues (treat UTC dates as Local dates)
+const parseDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    // Remove 'Z' to force parsing as local time, preventing -3h shift
+    return parseISO(dateStr.replace(/Z$/, ''));
+};
+
 interface TransactionsListProps {
     searchQuery?: string;
 }
@@ -184,7 +191,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
     // Cálculos de Resumo (SEMPRE DO MÊS ATUAL ou GERAL - seguindo o padrão de extrato)
     const summary = useMemo(() => {
         const now = new Date();
-        const thisMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), now));
+        const thisMonthTransactions = transactions.filter(t => isSameMonth(parseDate(t.date), now));
 
         const income = thisMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const expense = thisMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
@@ -192,7 +199,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         
         // Dados do mês anterior para comparação
         const lastMonth = subMonths(now, 1);
-        const lastMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), lastMonth));
+        const lastMonthTransactions = transactions.filter(t => isSameMonth(parseDate(t.date), lastMonth));
         const lastMonthIncome = lastMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthSavingsAmount = lastMonthIncome - lastMonthExpense;
@@ -235,7 +242,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         if (searchQuery) {
             filtered = filtered.filter(t => {
                 const searchNorm = removeAccents(searchQuery.toLowerCase());
-                const dateStr = format(new Date(t.date), 'dd/MM/yyyy', { locale: ptBR });
+                const dateStr = format(parseDate(t.date), 'dd/MM/yyyy', { locale: ptBR });
                 return (
                     removeAccents(t.category.toLowerCase()).includes(searchNorm) ||
                     (t.subcategory && removeAccents(t.subcategory.toLowerCase()).includes(searchNorm)) ||
@@ -249,32 +256,32 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         const now = new Date();
         if (!searchQuery) { // Only apply rigid time filters if NOT searching
             if (filterPeriod === 'today') {
-                filtered = filtered.filter(t => isToday(new Date(t.date)));
+                filtered = filtered.filter(t => isToday(parseDate(t.date)));
             } else if (filterPeriod === 'last5') {
                 // Will slice after sorting
             } else if (filterPeriod === 'this_month') {
-                filtered = filtered.filter(t => isSameMonth(new Date(t.date), now));
+                filtered = filtered.filter(t => isSameMonth(parseDate(t.date), now));
             } else if (filterPeriod === 'last_30') {
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                filtered = filtered.filter(t => new Date(t.date) >= thirtyDaysAgo);
+                filtered = filtered.filter(t => parseDate(t.date) >= thirtyDaysAgo);
             } else if (filterPeriod === 'last_60') {
                 const sixtyDaysAgo = new Date();
                 sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-                filtered = filtered.filter(t => new Date(t.date) >= sixtyDaysAgo);
+                filtered = filtered.filter(t => parseDate(t.date) >= sixtyDaysAgo);
             } else if (filterPeriod === 'custom' && customRange.start && customRange.end) {
                 const start = new Date(customRange.start);
                 const end = new Date(customRange.end);
                 // Set end time to end of day
                 end.setHours(23, 59, 59, 999);
                 filtered = filtered.filter(t => {
-                    const d = new Date(t.date);
+                    const d = parseDate(t.date);
                     return d >= start && d <= end;
                 });
             }
         }
 
-        const sorted = [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const sorted = [...filtered].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
         // Keep a reference to sorted/filtered data BEFORE grouping for export
         return sorted;
@@ -295,7 +302,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         const groups: Record<string, typeof transactions> = {};
 
         finalData.forEach(t => {
-            const date = new Date(t.date);
+            const date = parseDate(t.date);
             let key = format(date, "dd 'de' MMMM", { locale: ptBR });
 
             if (isToday(date)) key = `Hoje, ${key}`;

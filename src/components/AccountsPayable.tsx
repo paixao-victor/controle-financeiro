@@ -129,16 +129,18 @@ const AccountsPayable: React.FC = () => {
                 t.subcategory === p.subcategory
             );
 
+                const [subLabel, subIcon] = (p.subcategory || '').split(':');
+                
             return [{
                 id: `proj-${p.id}-${monthKey}`,
-                description: p.notes || p.subcategory || p.category,
+                description: p.notes || subLabel || p.category,
                 amount: p.amount,
                 date: format(billDate, 'yyyy-MM-dd'),
                 category: p.category,
-                subcategory: p.subcategory,
+                subcategory: subLabel,
                 isPrediction: true,
                 status: isPaid ? 'paid' : 'pending',
-                icon: p.icon,
+                icon: p.icon || subIcon, // Use extracted icon if p.icon is missing
                 color: p.color
             }];
         });
@@ -600,7 +602,7 @@ const AccountsPayable: React.FC = () => {
                                                 marginRight: (isShowing && isLast) ? '80px' : '0px',
                                             }}
                                             data-index={i}
-                                            className={`bar-item flex flex-col items-center min-w-[60px] md:min-w-[70px] w-[calc((100vw-30px)/7)] md:w-[80px] h-full justify-end relative group shrink-0 snap-center transition-all duration-300 ${isShowing ? 'z-[600]' : 'z-10'}`}>
+                                            className={`bar-item flex flex-col items-center min-w-[60px] md:min-w-[70px] w-[calc((100vw-30px)/7)] md:w-[80px] h-full justify-end relative group shrink-0 snap-center transition-all duration-300 ${isShowing ? 'z-600' : 'z-10'}`}>
                                             
                                             <AnimatePresence>
                                                 {isShowing && (
@@ -861,8 +863,8 @@ const AccountsPayable: React.FC = () => {
                                         className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-white/5 flex items-center justify-between group hover:shadow-xl transition-all shadow-sm cursor-pointer active:scale-[0.98]"
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="size-12 rounded-2xl bg-[#820ad1]/10 text-[#820ad1] flex items-center justify-center" style={{ backgroundColor: `${bill.color}20`, color: bill.color }}>
-                                                <span className="material-symbols-outlined text-2xl">{bill.icon}</span>
+                                            <div className="size-12 rounded-2xl bg-[#820ad1]/10 text-[#820ad1] flex items-center justify-center font-black text-sm uppercase tracking-tighter" style={{ backgroundColor: `${bill.color}20`, color: bill.color }}>
+                                                {bill.alias ? bill.alias.substring(0, 3).toUpperCase() : <span className="material-symbols-outlined text-2xl">{bill.icon}</span>}
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-content">{bill.description}</p>
@@ -893,7 +895,7 @@ const AccountsPayable: React.FC = () => {
                                     <div key={bill.id} className="bg-white dark:bg-zinc-900 rounded-3xl p-4 md:p-5 border-l-4 border-red-500 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:translate-x-1 transition-all shadow-sm">
                                         <div className="flex items-center gap-4">
                                             <div className="size-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-xl">priority_high</span>
+                                                <span className="material-symbols-outlined text-xl">{bill.icon || 'priority_high'}</span>
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-content">{bill.description || bill.subcategory || bill.category}</p>
@@ -926,7 +928,7 @@ const AccountsPayable: React.FC = () => {
                                 {stats.thisWeekBills.map((bill: any) => (
                                     <div key={bill.id} onClick={() => setBillActionMenu({ isOpen: true, bill })} className="bg-white dark:bg-zinc-900 p-5 rounded-3xl shadow-sm border border-white/5 flex items-center gap-4 group hover:translate-y-[-2px] transition-all cursor-pointer">
                                         <div className="size-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                                            <span className="material-symbols-outlined text-xl">event</span>
+                                            <span className="material-symbols-outlined text-xl">{bill.icon || 'event'}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[9px] font-bold text-dim uppercase tracking-wider">{format(parseISO(bill.date), "EEEE, dd/MM", { locale: ptBR })}</p>
@@ -950,7 +952,7 @@ const AccountsPayable: React.FC = () => {
                                 {stats.upcomingBills.map((bill: any) => (
                                     <div key={bill.id} onClick={() => setBillActionMenu({ isOpen: true, bill })} className="bg-white dark:bg-zinc-900 p-4 rounded-3xl shadow-sm border border-white/5 flex items-center gap-4 group hover:scale-[1.02] transition-all cursor-pointer opacity-80 hover:opacity-100">
                                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                            <span className="material-symbols-outlined text-lg">calendar_month</span>
+                                            <span className="material-symbols-outlined text-lg">{bill.icon || 'calendar_month'}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start mb-1">
