@@ -502,12 +502,12 @@ function AppContent() {
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 space-y-1 flex items-center flex-col w-full px-4">
+        <nav className={`flex-1 space-y-1 flex items-center flex-col w-full transition-all duration-300 ${isExpanded ? 'px-4' : 'px-0'}`}>
           <div className="px-4 h-6 flex items-center mt-2 transition-all duration-300">
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Principal</span>
             ) : (
-              <div className="w-8 h-[2px] bg-gray-200 dark:bg-white/10 rounded-full mx-auto" />
+              <div className="w-8 h-[2px] bg-gray-400/30 dark:bg-white/20 rounded-full mx-auto" />
             )}
           </div>
           
@@ -565,7 +565,7 @@ function AppContent() {
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Gerenciamento</span>
             ) : (
-              <div className="w-8 h-[2px] bg-gray-200 dark:bg-white/10 rounded-full mx-auto" />
+              <div className="w-8 h-[2px] bg-gray-400/30 dark:bg-white/20 rounded-full mx-auto" />
             )}
           </div>
           <NavItem

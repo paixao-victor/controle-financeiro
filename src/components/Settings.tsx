@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 
 interface SettingsProps {
     onNavigate: (tab: any) => void;
@@ -16,6 +17,8 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
         savingsGoal, setSavingsGoal,
         isPrivacyMode, setIsPrivacyMode
     } = useSettings();
+
+    const { settings: notifSettings, updateSettings: updateNotifSettings } = useNotifications();
 
     React.useEffect(() => {
         window.scrollTo(0, 0);
@@ -164,7 +167,52 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                 </div>
             </section>
 
-            {/* Seção 3: Privacidade e Segurança */}
+            {/* Seção 3: Notificações */}
+            <section className="space-y-4">
+                <div className="flex items-center gap-2 px-2">
+                    <span className="material-symbols-outlined text-primary">notifications_active</span>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-content/60">Notificações</h3>
+                </div>
+                <div className="nm-card p-6 space-y-8">
+                    {/* Antecedência de Alerta */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="font-black text-content">Antecedência de Aviso</p>
+                                <p className="text-xs text-dim font-bold mt-1">Dias antes do vencimento/fechamento</p>
+                            </div>
+                            <span className="text-2xl font-black text-primary nm-card px-4 h-12 flex items-center justify-center rounded-xl">{notifSettings.daysInAdvance}d</span>
+                        </div>
+                        <input 
+                            className="w-full h-2 bg-secondary/10 dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" 
+                            max="7" min="1" type="range" 
+                            value={notifSettings.daysInAdvance}
+                            onChange={(e) => updateNotifSettings({ daysInAdvance: parseInt(e.target.value) })}
+                        />
+                    </div>
+
+                    <div className="h-px bg-content/5"></div>
+
+                    {/* Auto-limpeza */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="font-black text-content">Auto-limpeza (Lidas)</p>
+                                <p className="text-xs text-dim font-bold mt-1">Excluir notificações lidas após X dias</p>
+                            </div>
+                            <span className="text-2xl font-black text-primary nm-card px-4 h-12 flex items-center justify-center rounded-xl">{notifSettings.autoDeleteDays}d</span>
+                        </div>
+                        <input 
+                            className="w-full h-2 bg-secondary/10 dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" 
+                            max="90" min="7" step="7" type="range" 
+                            value={notifSettings.autoDeleteDays}
+                            onChange={(e) => updateNotifSettings({ autoDeleteDays: parseInt(e.target.value) })}
+                        />
+                    </div>
+                </div>
+            </section>
+
+            {/* Seção 4: Privacidade e Segurança */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 px-2">
                     <span className="material-symbols-outlined text-primary">security</span>
@@ -193,7 +241,7 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                 </div>
             </section>
 
-            {/* Seção 4: Sistema e Dados */}
+            {/* Seção 5: Sistema e Dados */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 px-2">
                     <span className="material-symbols-outlined text-primary">database</span>

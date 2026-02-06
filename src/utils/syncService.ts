@@ -61,3 +61,11 @@ export async function updateSubcategoryInSheets(username: string, oldName: strin
     return postToScript('updateSubcategory', { username, oldName, newName, categoryId });
 }
 
+export async function syncNotifications(username: string, notifications: any[]) {
+    return postToScript('syncNotifications', { username, notifications });
+}
+
+export async function fetchNotifications(username: string) {
+    return postToScript('getNotifications', { username });
+}
+

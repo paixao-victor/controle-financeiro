@@ -1,10 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useTransactions } from './TransactionsContext';
 import { useSettings } from './SettingsContext';
+import { useAuth } from './AuthContext';
+import { syncNotifications, fetchNotifications } from '../utils/syncService';
 import type { AppNotification } from '../types';
 
 interface NotificationSettings {
     daysInAdvance: number;
+    autoDeleteDays: number; // New setting
 }
 
 interface NotificationsContextType {
@@ -17,6 +20,7 @@ interface NotificationsContextType {
     settings: NotificationSettings;
     updateSettings: (settings: Partial<NotificationSettings>) => void;
     addSystemNotification: (notif: Omit<AppNotification, 'id' | 'read' | 'date'>) => void;
+    refreshNotifications: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
@@ -24,11 +28,12 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { cards, transactions } = useTransactions();
     const { savingsGoal } = useSettings();
+    const { user } = useAuth();
     
     // Settings State
     const [settings, setSettings] = useState<NotificationSettings>(() => {
         const stored = localStorage.getItem('notification_settings');
-        return stored ? JSON.parse(stored) : { daysInAdvance: 3 };
+        return stored ? JSON.parse(stored) : { daysInAdvance: 3, autoDeleteDays: 30 };
     });
 
     // Notifications State
@@ -36,6 +41,8 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         const stored = localStorage.getItem('notifications');
         return stored ? JSON.parse(stored) : [];
     });
+
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Save to LocalStorage
     useEffect(() => {
@@ -45,6 +52,28 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     useEffect(() => {
         localStorage.setItem('notifications', JSON.stringify(notifications));
     }, [notifications]);
+
+    // Initial load from Cloud
+    const refreshNotifications = useCallback(async () => {
+        if (!user?.username || isSyncing) return;
+        try {
+            setIsSyncing(true);
+            const data = await fetchNotifications(user.username);
+            if (data.success && data.notifications) {
+                setNotifications(data.notifications);
+            }
+        } catch (err) {
+            console.error('Failed to fetch notifications:', err);
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [user?.username]);
+
+    useEffect(() => {
+        if (user?.username) {
+            refreshNotifications();
+        }
+    }, [user?.username, refreshNotifications]);
 
     // Derived State
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -70,9 +99,47 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
                 ...notif
             };
             
-            return [newNotif, ...prev];
+            const updated = [newNotif, ...prev];
+            
+            // Auto-sync addition
+            if (user?.username) {
+                syncNotifications(user.username, updated).catch(console.error);
+            }
+            
+            return updated;
         });
     };
+
+    // Auto-Delete Logic
+    useEffect(() => {
+        const cleanup = () => {
+            const now = new Date();
+            const limit = settings.autoDeleteDays || 30;
+            
+            setNotifications(prev => {
+                const filtered = prev.filter(n => {
+                    // Only auto-delete read notifications older than X days
+                    if (n.read) {
+                        const notifDate = new Date(n.date);
+                        const diffTime = Math.abs(now.getTime() - notifDate.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays <= limit;
+                    }
+                    return true;
+                });
+                
+                if (filtered.length !== prev.length && user?.username) {
+                    syncNotifications(user.username, filtered).catch(console.error);
+                }
+                
+                return filtered;
+            });
+        };
+
+        const interval = setInterval(cleanup, 1000 * 60 * 60 * 12); // Check every 12 hours
+        cleanup(); // Run on mount
+        return () => clearInterval(interval);
+    }, [settings.autoDeleteDays, user?.username]);
 
     // Auto-Generate Notifications Logic
     useEffect(() => {
@@ -176,20 +243,36 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
 
     // Actions
-    const markAsRead = (id: string) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const markAsRead = async (id: string) => {
+        setNotifications(prev => {
+            const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+            if (user?.username) syncNotifications(user.username, updated).catch(console.error);
+            return updated;
+        });
     };
 
-    const markAllAsRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const markAllAsRead = async () => {
+        setNotifications(prev => {
+            const updated = prev.map(n => ({ ...n, read: true }));
+            if (user?.username) syncNotifications(user.username, updated).catch(console.error);
+            return updated;
+        });
     };
 
-    const deleteNotification = (id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
+    const deleteNotification = async (id: string) => {
+        setNotifications(prev => {
+            const updated = prev.filter(n => n.id !== id);
+            if (user?.username) syncNotifications(user.username, updated).catch(console.error);
+            return updated;
+        });
     };
 
-    const markAsUnread = (id: string) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
+    const markAsUnread = async (id: string) => {
+        setNotifications(prev => {
+            const updated = prev.map(n => n.id === id ? { ...n, read: false } : n);
+            if (user?.username) syncNotifications(user.username, updated).catch(console.error);
+            return updated;
+        });
     };
 
     const updateSettings = (newSettings: Partial<NotificationSettings>) => {
@@ -206,7 +289,8 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
             deleteNotification,
             settings,
             updateSettings,
-            addSystemNotification
+            addSystemNotification,
+            refreshNotifications
         }}>
             {children}
         </NotificationsContext.Provider>
