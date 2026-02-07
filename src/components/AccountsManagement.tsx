@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
+import BankStatementModal from './BankStatementModal';
 import BottomSheetIconSelector from './BottomSheetIconSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactions } from '../contexts/TransactionsContext';
 import type { Account } from '../types';
 
 const AccountsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { accounts, addAccount, updateAccount, deleteAccount } = useTransactions();
+    const { accounts, addAccount, updateAccount, deleteAccount, accountBalances } = useTransactions();
     
     // Estados de edição e adição
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [selectedAccountForStatement, setSelectedAccountForStatement] = useState<Account | null>(null);
     
     // Estado formulário (unificado para add e edit)
     const [formData, setFormData] = useState({
@@ -160,20 +162,31 @@ const AccountsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <p className="font-black text-lg text-content">R$ {account.balance.toFixed(2)}</p>
-                                    {editingId === account.id ? (
-                                        <span className="material-symbols-outlined text-primary">expand_less</span>
-                                    ) : (
+                                    <p className="font-black text-lg text-content">R$ {(accountBalances[account.id] || account.balance).toFixed(2)}</p>
+                                    <div className="flex items-center gap-1">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleDelete(account.id);
+                                                setSelectedAccountForStatement(account);
                                             }}
-                                            className="size-8 rounded-full hover:bg-red-500/10 text-dim hover:text-red-500 flex items-center justify-center transition-colors"
+                                            className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all active:scale-95"
                                         >
-                                            <span className="material-symbols-outlined text-lg">delete</span>
+                                            Ver Extrato
                                         </button>
-                                    )}
+                                        {editingId === account.id ? (
+                                            <span className="material-symbols-outlined text-primary ml-2">expand_less</span>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(account.id);
+                                                }}
+                                                className="size-8 rounded-full hover:bg-red-500/10 text-dim hover:text-red-500 flex items-center justify-center transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">delete</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -305,6 +318,16 @@ const AccountsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 selectedIcon={formData.icon}
                 onSelect={(icon) => setFormData({ ...formData, icon })}
             />
+
+            {/* Modal de Extrato Local */}
+            {selectedAccountForStatement && (
+                <BankStatementModal 
+                    isOpen={!!selectedAccountForStatement}
+                    onClose={() => setSelectedAccountForStatement(null)}
+                    account={selectedAccountForStatement}
+                    accountBalance={accountBalances[selectedAccountForStatement.id] || 0}
+                />
+            )}
 
             {/* Fab button para adicionar */}
             {!isAdding && !editingId && (

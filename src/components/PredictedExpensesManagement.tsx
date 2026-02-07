@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { PredictedExpense } from '@/types';
 
 const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { availableCategories, predictedExpenses: expenses, addPredictedExpense, updatePredictedExpense, deletePredictedExpense } = useTransactions();
+    const { availableCategories, predictedExpenses: expenses, addPredictedExpense, updatePredictedExpense, deletePredictedExpense, cards, accounts } = useTransactions();
     
     const PREDICTED_COLORS = [
         '#47f425', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899',
@@ -24,7 +24,10 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
         category: '', 
         dueDay: '1', 
         icon: 'payments',
-        color: PREDICTED_COLORS[0]
+        color: PREDICTED_COLORS[0],
+        paymentMethod: 'cartao' as 'banco' | 'cartao',
+        cardId: '',
+        accountId: ''
     });
 
     // Estados dos Sheets
@@ -32,6 +35,9 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
     const [isSubcategorySheetOpen, setIsSubcategorySheetOpen] = useState(false);
     const [isDueDaySheetOpen, setIsDueDaySheetOpen] = useState(false);
     const [isIconSheetOpen, setIsIconSheetOpen] = useState(false);
+    const [isPaymentMethodSheetOpen, setIsPaymentMethodSheetOpen] = useState(false);
+    const [isCardSheetOpen, setIsCardSheetOpen] = useState(false);
+    const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
     
     const DAYS_OPTIONS = Array.from({ length: 31 }, (_, i) => ({
         id: i + 1,
@@ -67,7 +73,10 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                     category: newExpense.category,
                     dueDay: parseInt(newExpense.dueDay),
                     icon: newExpense.icon,
-                    color: newExpense.color
+                    color: newExpense.color,
+                    paymentMethod: newExpense.paymentMethod,
+                    cardId: newExpense.paymentMethod === 'cartao' ? newExpense.cardId : undefined,
+                    accountId: newExpense.paymentMethod === 'banco' ? newExpense.accountId : undefined
                 });
                 setEditingId(null);
             } else {
@@ -79,7 +88,10 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                     category: newExpense.category,
                     dueDay: parseInt(newExpense.dueDay),
                     icon: newExpense.icon,
-                    color: newExpense.color
+                    color: newExpense.color,
+                    paymentMethod: newExpense.paymentMethod,
+                    cardId: newExpense.paymentMethod === 'cartao' ? newExpense.cardId : undefined,
+                    accountId: newExpense.paymentMethod === 'banco' ? newExpense.accountId : undefined
                 });
                 setIsAdding(false);
             }
@@ -95,7 +107,10 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
             category: expense.category,
             dueDay: expense.dueDay.toString(),
             icon: expense.icon,
-            color: expense.color || PREDICTED_COLORS[0]
+            color: expense.color || PREDICTED_COLORS[0],
+            paymentMethod: expense.paymentMethod || 'cartao',
+            cardId: expense.cardId || '',
+            accountId: expense.accountId || ''
         });
         setEditingId(expense.id);
         setIsAdding(false);
@@ -109,7 +124,10 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
             category: '', 
             dueDay: '1', 
             icon: 'payments', 
-            color: PREDICTED_COLORS[0] 
+            color: PREDICTED_COLORS[0],
+            paymentMethod: 'cartao',
+            cardId: '',
+            accountId: ''
         });
         setEditingId(null);
         setIsAdding(false);
@@ -200,7 +218,9 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                                         <span className="material-symbols-outlined text-2xl font-bold">{expense.icon}</span>
                                     </div>
                                     <div>
-                                        <p className={`font-bold transition-colors ${editingId === expense.id ? 'text-primary' : 'text-content'}`}>{expense.subcategory}</p>
+                                        <p className={`font-bold transition-colors ${editingId === expense.id ? 'text-primary' : 'text-content'}`}>
+                                            {expense.subcategory.split(':')[0].trim()}
+                                        </p>
                                         <p className="text-xs text-dim">
                                             {expense.category} • Vence dia {expense.dueDay}
                                         </p>
@@ -250,11 +270,15 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                                             <div className="col-span-1">
                                                 <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Subcategoria</label>
                                                 <button 
-                                                    onClick={() => setIsSubcategorySheetOpen(true)}
+                                                    onClick={() => setIsSubcategorySheetOpen(true)} 
                                                     disabled={!newExpense.category || availableSubcategories.length === 0}
                                                     className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between group disabled:opacity-50"
                                                 >
-                                                    <span className="truncate">{newExpense.subcategory || 'Nenhuma'}</span>
+                                                    <span className="truncate">
+                                                        {newExpense.subcategory 
+                                                            ? newExpense.subcategory.split(':')[0].trim() 
+                                                            : 'Nenhuma'}
+                                                    </span>
                                                     <span className="material-symbols-outlined text-dim">expand_more</span>
                                                 </button>
                                             </div>
@@ -299,6 +323,35 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                                                     <span className="material-symbols-outlined text-xl">{newExpense.icon}</span>
                                                     <span className="text-dim">Alterar</span>
                                                     <div className="flex-1" />
+                                                    <span className="material-symbols-outlined text-dim">expand_more</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="col-span-1">
+                                                <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Forma de Pagamento</label>
+                                                <button onClick={() => setIsPaymentMethodSheetOpen(true)} className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between">
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="material-symbols-outlined text-primary">{newExpense.paymentMethod === 'cartao' ? 'credit_card' : 'account_balance'}</span>
+                                                        {newExpense.paymentMethod === 'cartao' ? 'Cartão de Crédito' : 'Conta Bancária'}
+                                                    </span>
+                                                    <span className="material-symbols-outlined text-dim">expand_more</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="col-span-1">
+                                                <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">
+                                                    {newExpense.paymentMethod === 'cartao' ? 'Cartão' : 'Conta'}
+                                                </label>
+                                                <button 
+                                                    onClick={() => newExpense.paymentMethod === 'cartao' ? setIsCardSheetOpen(true) : setIsAccountSheetOpen(true)} 
+                                                    className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between"
+                                                >
+                                                    <span className="truncate">
+                                                        {newExpense.paymentMethod === 'cartao' 
+                                                            ? (cards.find(c => c.id === newExpense.cardId)?.alias || 'Selecionar Cartão')
+                                                            : (accounts.find(a => a.id === newExpense.accountId)?.name || 'Selecionar Conta')
+                                                        }
+                                                    </span>
                                                     <span className="material-symbols-outlined text-dim">expand_more</span>
                                                 </button>
                                             </div>
@@ -371,7 +424,11 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                                     disabled={!newExpense.category || availableSubcategories.length === 0}
                                     className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between disabled:opacity-50"
                                 >
-                                    <span className="truncate">{newExpense.subcategory || 'Nenhuma'}</span>
+                                    <span className="truncate">
+                                        {newExpense.subcategory 
+                                            ? newExpense.subcategory.split(':')[0].trim() 
+                                            : 'Nenhuma'}
+                                    </span>
                                     <span className="material-symbols-outlined text-dim">expand_more</span>
                                 </button>
                             </div>
@@ -410,6 +467,33 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                                     <span className="material-symbols-outlined text-dim">expand_more</span>
                                 </button>
                             </div>
+                            <div className="col-span-1">
+                                <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Forma de Pagamento</label>
+                                <button onClick={() => setIsPaymentMethodSheetOpen(true)} className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between">
+                                    <span className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary">{newExpense.paymentMethod === 'cartao' ? 'credit_card' : 'account_balance'}</span>
+                                        {newExpense.paymentMethod === 'cartao' ? 'Cartão de Crédito' : 'Conta Bancária'}
+                                    </span>
+                                    <span className="material-symbols-outlined text-dim">expand_more</span>
+                                </button>
+                            </div>
+                            <div className="col-span-1">
+                                <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">
+                                    {newExpense.paymentMethod === 'cartao' ? 'Cartão' : 'Conta'}
+                                </label>
+                                <button 
+                                    onClick={() => newExpense.paymentMethod === 'cartao' ? setIsCardSheetOpen(true) : setIsAccountSheetOpen(true)} 
+                                    className="w-full h-12 px-4 bg-black/5 dark:bg-white/5 rounded-xl text-content font-bold text-sm flex items-center justify-between"
+                                >
+                                    <span className="truncate">
+                                        {newExpense.paymentMethod === 'cartao' 
+                                            ? (cards.find(c => c.id === newExpense.cardId)?.alias || 'Selecionar Cartão')
+                                            : (accounts.find(a => a.id === newExpense.accountId)?.name || 'Selecionar Conta')
+                                        }
+                                    </span>
+                                    <span className="material-symbols-outlined text-dim">expand_more</span>
+                                </button>
+                            </div>
                             <div className="col-span-2">
                                 <label className="text-[10px] font-bold text-dim uppercase mb-2 block tracking-widest">Cor</label>
                                 <div className="flex flex-wrap gap-2">
@@ -439,7 +523,15 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                 title="Selecionar Categoria"
                 selectedValue={newExpense.category}
                 options={availableCategories.expense.map(cat => ({ id: cat.id, label: cat.label, icon: cat.icon }))}
-                onSelect={(opt) => setNewExpense({ ...newExpense, category: opt.label, subcategory: '' })}
+                onSelect={(opt) => {
+                    const cat = availableCategories.expense.find(c => c.label === opt.label);
+                    setNewExpense({ 
+                        ...newExpense, 
+                        category: opt.label, 
+                        subcategory: '',
+                        icon: cat?.icon || newExpense.icon
+                    });
+                }}
             />
 
             <BottomSheetSelect 
@@ -447,12 +539,29 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                 onClose={() => setIsSubcategorySheetOpen(false)}
                 title="Selecionar Subcategoria"
                 selectedValue={newExpense.subcategory}
-                options={availableSubcategories.map((sub, idx) => ({ 
-                    id: idx, 
-                    label: typeof sub === 'string' ? sub : sub.label, 
-                    icon: typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon 
-                }))}
-                onSelect={(opt) => setNewExpense({ ...newExpense, subcategory: opt.label })}
+                options={availableSubcategories.map((sub, idx) => {
+                    const label = typeof sub === 'string' ? sub : sub.label;
+                    const icon = typeof sub === 'string' ? 'subdirectory_arrow_right' : sub.icon;
+                    
+                    let subLabel = label;
+                    let subIcon = icon;
+                    if (label.includes(':')) {
+                        const parts = label.split(':');
+                        subLabel = parts[0].trim();
+                        subIcon = parts[1].trim();
+                    }
+                    
+                    return { id: idx, label: subLabel, icon: subIcon };
+                })}
+                onSelect={(opt) => {
+                    const originalSub = availableSubcategories[opt.id as number];
+                    const rawLabel = typeof originalSub === 'string' ? originalSub : originalSub.label;
+                    setNewExpense({ 
+                        ...newExpense, 
+                        subcategory: rawLabel,
+                        icon: opt.icon !== 'subdirectory_arrow_right' ? opt.icon as string : newExpense.icon
+                    });
+                }}
             />
             
             <BottomSheetSelect 
@@ -470,6 +579,36 @@ const PredictedExpensesManagement: React.FC<{ onBack: () => void }> = ({ onBack 
                 title="Selecionar Ícone"
                 selectedIcon={newExpense.icon}
                 onSelect={(icon) => setNewExpense({ ...newExpense, icon })}
+            />
+
+            <BottomSheetSelect 
+                isOpen={isPaymentMethodSheetOpen}
+                onClose={() => setIsPaymentMethodSheetOpen(false)}
+                title="Forma de Pagamento"
+                selectedValue={newExpense.paymentMethod === 'cartao' ? 'Cartão de Crédito' : 'Conta Bancária'}
+                options={[
+                    { id: 'cartao', label: 'Cartão de Crédito', icon: 'credit_card' },
+                    { id: 'banco', label: 'Conta Bancária', icon: 'account_balance' }
+                ]}
+                onSelect={(opt) => setNewExpense({ ...newExpense, paymentMethod: opt.id as any })}
+            />
+
+            <BottomSheetSelect 
+                isOpen={isCardSheetOpen}
+                onClose={() => setIsCardSheetOpen(false)}
+                title="Selecionar Cartão"
+                selectedValue={newExpense.cardId}
+                options={cards.map(c => ({ id: c.id, label: c.alias, icon: 'credit_card' }))}
+                onSelect={(opt) => setNewExpense({ ...newExpense, cardId: String(opt.id) })}
+            />
+
+            <BottomSheetSelect 
+                isOpen={isAccountSheetOpen}
+                onClose={() => setIsAccountSheetOpen(false)}
+                title="Selecionar Conta"
+                selectedValue={newExpense.accountId}
+                options={accounts.map(a => ({ id: a.id, label: a.name, icon: 'account_balance' }))}
+                onSelect={(opt) => setNewExpense({ ...newExpense, accountId: String(opt.id) })}
             />
 
             {/* Fab button para adicionar */}

@@ -78,6 +78,7 @@ export interface Transaction {
     currentInstallment?: number; // Parcela atual (ex: 1 de 3)
     parentTransactionId?: string; // ID da transação original para parcelados
     notes?: string | null;
+    predictedExpenseId?: string | null;
     status?: 'active' | 'deleted';
     createdAt: string; // ISO
     updatedAt: string; // ISO
@@ -100,6 +101,9 @@ export interface PredictedExpense {
     icon: string;
     color?: string;
     notes?: string;
+    paymentMethod?: 'banco' | 'cartao';
+    cardId?: string;
+    accountId?: string;
     status?: 'active' | 'deleted';
 }
 

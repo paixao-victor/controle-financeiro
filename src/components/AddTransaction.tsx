@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { v4 as uuidv4 } from 'uuid';
 import BottomSheetSelect from './BottomSheetSelect';
+import ConfirmationModal from './ConfirmationModal';
 import CircularNumberSelector from './CircularNumberSelector';
 
 
@@ -22,8 +23,8 @@ interface AddTransactionProps {
 }
 
 const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess, initialData }) => {
-    const [amount, setAmount] = useState(initialData?.amount 
-        ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(initialData.amount) 
+    const [amount, setAmount] = useState(initialData?.amount
+        ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(initialData.amount)
         : '0,00');
     const [type, setType] = useState<TransactionType>('expense');
     const [recurrenceMode, setRecurrenceMode] = useState<'Constante' | 'Parcelado'>('Constante'); // Moved up to use in Credit logic
@@ -38,8 +39,11 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [cardPaymentOption, setCardPaymentOption] = useState<'debit' | 'credit'>('credit');
     // Ensure notes are empty by default for new transactions, as requested
     const [notes, setNotes] = useState(initialData?.notes || '');
+    const [predictedExpenseId, setPredictedExpenseId] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const { addTransaction, availableCategories, cards, accounts } = useTransactions();
+
+    const { addTransaction, availableCategories, cards, accounts, predictedExpenses } = useTransactions();
 
     // Effect to auto-select linked account for Debit
     React.useEffect(() => {
@@ -61,6 +65,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [isCardSheetOpen, setIsCardSheetOpen] = useState(false);
     const [isRecurrenceModeSheetOpen, setIsRecurrenceModeSheetOpen] = useState(false);
     const [isNumberSelectorOpen, setIsNumberSelectorOpen] = useState(false);
+    const [isPredictedSheetOpen, setIsPredictedSheetOpen] = useState(false);
+    const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+    const [pendingChanges, setPendingChanges] = useState<any>(null);
 
     // Installments Logic
     const [customInstallments, setCustomInstallments] = useState<Array<{ number: number; amount: number; date: string }>>([]);
@@ -69,7 +76,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     // Only triggering when months actually change to avoid loop with amount updates
     const prevMonthsRef = useRef(recurrenceMonths);
     const prevDateRef = useRef(date);
-    
+
     React.useEffect(() => {
         const months = parseInt(recurrenceMonths);
         if (recurrenceMode === 'Parcelado' && months > 1) {
@@ -84,12 +91,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                     date: instDate.toISOString().split('T')[0]
                 };
             });
-            
-             // Only update if months changed or date changed (to keep date sync) - preserving amounts if only date changes? 
+
+             // Only update if months changed or date changed (to keep date sync) - preserving amounts if only date changes?
              // Simplification: Reset on months change. Keep amounts on date change?
-             // User wants to edit amounts. If total changes, we redistribute? 
+             // User wants to edit amounts. If total changes, we redistribute?
              // Let's rely on manual sync for Total -> Installments.
-             
+
              if (prevMonthsRef.current !== recurrenceMonths) {
                  setCustomInstallments(newInstallments);
                  prevMonthsRef.current = recurrenceMonths;
@@ -98,7 +105,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
             setCustomInstallments([]);
         }
     }, [recurrenceMonths, recurrenceMode]);
-    
+
     // Update dates if main date changes
     React.useEffect(() => {
         if (prevDateRef.current !== date) {
@@ -110,6 +117,36 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
             prevDateRef.current = date;
         }
     }, [date]);
+
+    // Listener para abertura remota (Dashboard)
+    React.useEffect(() => {
+        const handleOpen = (e: any) => {
+            const data = e.detail;
+            if (data) {
+                if (data.amount !== undefined) setAmount(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(data.amount));
+                if (data.category !== undefined) setCategory(data.category);
+                if (data.subcategory !== undefined) setSubcategory(data.subcategory);
+                if (data.date !== undefined) setDate(data.date);
+                if (data.notes !== undefined) setNotes(data.notes);
+                if (data.predictedExpenseId !== undefined) setPredictedExpenseId(data.predictedExpenseId);
+
+                // New logic for payment linkage
+                if (data.paymentMethod) {
+                    setPaymentMethod(data.paymentMethod);
+                    if (data.paymentMethod === 'cartao' && data.cardId) {
+                        setSelectedCardId(data.cardId);
+                        setCardPaymentOption('credit');
+                    } else if (data.paymentMethod === 'banco' && data.accountId) {
+                        const account = accounts.find(a => a.id === data.accountId);
+                        if (account) setTargetAccount(account.name);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('open-add-transaction', handleOpen);
+        return () => window.removeEventListener('open-add-transaction', handleOpen);
+    }, [accounts]);
 
     // When Total Amount changes manually, redistribute (unless it matches sum of custom)
     const handleAmountBlur = () => {
@@ -129,7 +166,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         const newInstallments = [...customInstallments];
         newInstallments[index].amount = newAmount;
         setCustomInstallments(newInstallments);
-        
+
         // Update Total
         const newTotal = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
         setAmount(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(newTotal));
@@ -154,7 +191,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value.replace(/\D/g, '');
         if (value === '') value = '0';
-        
+
         if (value.length > 1) {
             value = value.replace(/^0+/, '');
             if (value === '') value = '0';
@@ -172,9 +209,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         }, 0);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const floatAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
-        
+
         if (floatAmount <= 0) {
             alert('Por favor, insira um valor válido.');
             return;
@@ -203,21 +240,68 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
             recurrenceRule: isRecurring ? 'monthly' : null,
             paymentMethod,
             cardId: paymentMethod === 'cartao' ? selectedCardId : undefined,
-            accountId: (paymentMethod === 'banco' || (paymentMethod === 'cartao' && cardPaymentOption === 'debit')) 
-                ? accounts.find(a => a.name === targetAccount)?.id 
+            accountId: (paymentMethod === 'banco' || (paymentMethod === 'cartao' && cardPaymentOption === 'debit'))
+                ? accounts.find(a => a.name === targetAccount)?.id
                 : undefined,
             paymentOption: paymentMethod === 'cartao' ? cardPaymentOption : undefined,
             notes,
+            predictedExpenseId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
 
-        // Recurrence Mode Logic for Credit Card Installments (Reuse existing logic but clarify UI)
+        // Check for unlinking rule
+        if (predictedExpenseId) {
+            const exp = predictedExpenses.find(e => e.id === predictedExpenseId);
+            const categoryChanged = exp && (category !== exp.category || subcategory !== exp.subcategory);
+            if (categoryChanged) {
+                setPendingChanges({
+                    baseTransaction,
+                    floatAmount,
+                    date,
+                    recurrenceMode,
+                    recurrenceMonths,
+                    paymentMethod,
+                    cardPaymentOption,
+                    notes,
+                    category,
+                    subcategory
+                });
+                setShowUnlinkConfirm(true);
+                return;
+            }
+        }
 
+        setIsSaving(true);
+        try {
+            await executeSave(baseTransaction, floatAmount, date, recurrenceMode, recurrenceMonths, paymentMethod, cardPaymentOption, notes, category, subcategory);
+            onSaveSuccess();
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao salvar transação.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const executeSave = async (
+        baseTransaction: Omit<Transaction, 'id' | 'date' | 'amount' | 'currentInstallment'>,
+        floatAmount: number,
+        date: string,
+        recurrenceMode: 'Constante' | 'Parcelado',
+        recurrenceMonths: string,
+        paymentMethod: 'banco' | 'cartao',
+        cardPaymentOption: 'debit' | 'credit',
+        notes: string,
+        category: string,
+        subcategory: string
+    ) => {
+        // Recurrence Mode Logic for Credit Card Installments (Reuse existing logic but clarify UI)
         if (paymentMethod === 'cartao' && cardPaymentOption === 'credit' && recurrenceMode === 'Parcelado' && parseInt(recurrenceMonths) > 1) {
             const numMonths = parseInt(recurrenceMonths);
             const parentId = uuidv4();
-            
+
             // Use custom installments if valid, otherwise calculate
             const installmentsToSave = customInstallments.length === numMonths ? customInstallments : Array.from({ length: numMonths }, (_, i) => {
                  const installmentAmount = floatAmount / numMonths;
@@ -257,6 +341,36 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         }
         
         onSaveSuccess();
+    };
+
+    const handleConfirmUnlink = async (unlink: boolean) => {
+        if (!pendingChanges) return;
+
+        const { baseTransaction, floatAmount, date, recurrenceMode, recurrenceMonths, paymentMethod, cardPaymentOption, notes, category, subcategory } = pendingChanges;
+        
+        const finalBase = { ...baseTransaction };
+        let finalNotes = notes;
+
+        if (unlink) {
+            finalBase.predictedExpenseId = null;
+        } else {
+            const noteSuffix = ' (*categoria alterada)';
+            if (!notes.includes(noteSuffix)) {
+                finalNotes = notes + noteSuffix;
+            }
+        }
+
+        setIsSaving(true);
+        try {
+            await executeSave(finalBase, floatAmount, date, recurrenceMode, recurrenceMonths, paymentMethod, cardPaymentOption, finalNotes, category, subcategory);
+            onSaveSuccess();
+            onClose();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+            setShowUnlinkConfirm(false);
+        }
     };
 
     return (
@@ -321,6 +435,58 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                     <div className="space-y-4 opacity-0 animate-fade-up delay-100">
                         <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Classificação</div>
                         <div className="nm-card rounded-2xl p-6 h-full flex flex-col gap-6">
+                            {type === 'expense' && (
+                                <div className="animate-in fade-in slide-in-from-top-2">
+                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">Ligar a uma Despesa Prevista (Opcional)</label>
+                                    <button 
+                                        onClick={() => setIsPredictedSheetOpen(true)} 
+                                        className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group bg-primary/5"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary text-sm">link</span>
+                                            <span className={predictedExpenseId ? 'text-content' : 'text-dim'}>
+                                                {predictedExpenseId 
+                                                    ? predictedExpenses.find(e => e.id === predictedExpenseId)?.subcategory.split(':')[0].trim() || 'Selecionado'
+                                                    : 'Nenhuma selecionada'}
+                                            </span>
+                                        </div>
+                                        <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
+                                    </button>
+                                    <BottomSheetSelect 
+                                        isOpen={isPredictedSheetOpen}
+                                        onClose={() => setIsPredictedSheetOpen(false)}
+                                        title="Despesas Previstas"
+                                        selectedValue={predictedExpenseId || ''}
+                                        options={predictedExpenses
+                                            .filter(e => e.status !== 'deleted')
+                                            .map(e => ({ 
+                                                id: e.id, 
+                                                label: `${e.subcategory.split(':')[0].trim()} (R$ ${e.amount.toFixed(2)})`, 
+                                                icon: e.icon || 'receipt_long' 
+                                            }))}
+                                        onSelect={(opt) => {
+                                            setPredictedExpenseId(opt.id as string);
+                                            const exp = predictedExpenses.find(e => e.id === opt.id);
+                                            if (exp) {
+                                                setCategory(exp.category);
+                                                setSubcategory(exp.subcategory);
+                                                setAmount(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(exp.amount));
+                                                if (exp.notes) setNotes(exp.notes);
+                                            }
+                                        }}
+                                    />
+                                    {predictedExpenseId && (
+                                        <button 
+                                            onClick={() => setPredictedExpenseId(null)}
+                                            className="mt-2 text-[10px] font-bold text-red-500 uppercase flex items-center gap-1 hover:underline"
+                                        >
+                                            <span className="material-symbols-outlined text-[12px]">link_off</span>
+                                            Desvincular
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">
                                     {type === 'income' ? 'Categoria da Receita' : 'Categoria da Despesa'}
@@ -745,11 +911,32 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
             </div>
 
             <footer className="md:hidden fixed bottom-0 left-0 right-0 p-6 pb-12 bg-linear-to-t from-background via-background/90 to-transparent z-40 opacity-0 animate-fade-up delay-400">
-                <button onClick={handleSave} className={`w-full hover:brightness-105 active:scale-[0.97] transition-all text-secondary text-lg font-extrabold py-4 rounded-2xl shadow-glow flex items-center justify-center gap-3 ${type === 'income' ? 'bg-primary' : 'bg-red-500'}`}>
-                    <span>Salvar Transação</span>
-                    <span className="material-symbols-outlined font-bold">arrow_forward</span>
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className={`w-full hover:brightness-105 active:scale-[0.97] transition-all text-secondary text-lg font-extrabold py-4 rounded-2xl shadow-glow flex items-center justify-center gap-3 disabled:opacity-50 ${type === 'income' ? 'bg-primary' : 'bg-red-500'}`}
+                >
+                    {isSaving ? (
+                        <span className="material-symbols-outlined animate-spin font-bold">sync</span>
+                    ) : (
+                        <span className="material-symbols-outlined font-bold">check</span>
+                    )}
+                    <span> {isSaving ? 'Salvando...' : 'Salvar Transação'}</span>
                 </button>
             </footer>
+            {/* Modal de Desvinculação */}
+            <ConfirmationModal 
+                isOpen={showUnlinkConfirm}
+                onClose={() => setShowUnlinkConfirm(false)}
+                onConfirm={() => handleConfirmUnlink(true)}
+                onCancel={() => handleConfirmUnlink(false)}
+                title="Desvincular Transação?"
+                message="Você alterou a categoria de uma despesa vinculada. Deseja desvincular este lançamento da previsão original?"
+                confirmText="Sim, Desvincular"
+                cancelText="Manter Vinculado"
+                icon="link_off"
+                type="warning"
+            />
         </div>
     );
 };

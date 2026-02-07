@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/Button';
 import EditTransactionModal from './EditTransactionModal';
 import Modal from './Modal';
+import BankStatementModal from './BankStatementModal';
 
 // Helper to fix timezone issues (treat UTC dates as Local dates)
 const parseDate = (dateStr: string) => {
@@ -29,7 +30,7 @@ interface TransactionsListProps {
 }
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' }) => {
-    const { transactions, deleteTransaction, currentCurrency, isEditMode, availableCategories } = useTransactions();
+    const { transactions, deleteTransaction, currentCurrency, isEditMode, availableCategories, accounts, accountBalances } = useTransactions();
     const { lastFilterPeriod, setLastFilterPeriod, savingsGoal, formatValue } = useSettings();
     const [filterPeriod, setFilterPeriod] = useState<'today' | 'last5' | 'this_month' | 'last_30' | 'last_60' | 'custom'>((lastFilterPeriod as any) || 'last5');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -39,7 +40,9 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
     const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
     const [isExportModalOpen, setExportModalOpen] = useState(false);
     const [isSavingsDetailOpen, setSavingsDetailOpen] = useState(false);
+    const [selectedAccountForStatement, setSelectedAccountForStatement] = useState<any>(null);
     const savingsReportRef = React.useRef<HTMLDivElement>(null);
+    const accountsDragRef = useDragScroll({ enabled: true });
     
     const getSubcategoryIcon = (categoryName: string, subName: string | null | undefined, type: 'income' | 'expense') => {
         if (!subName) return null;
@@ -57,6 +60,21 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
             setLastFilterPeriod(filterPeriod);
         }
     }, [filterPeriod, setLastFilterPeriod]);
+    
+    // Listener para seleção externa de conta (Ex: via Configurações)
+    useEffect(() => {
+        const handleSelect = (e: any) => {
+            const accountId = e.detail;
+            if (accountId) {
+                const account = accounts.find(a => a.id === accountId);
+                if (account) setSelectedAccountForStatement(account);
+            }
+        };
+        window.addEventListener('select-account', handleSelect);
+        return () => window.removeEventListener('select-account', handleSelect);
+    }, [accounts]);
+
+
 
 
 
@@ -126,8 +144,6 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         }
     };
     
-    // Drag Scroll Ref
-    const listDragRef = useDragScroll({ enabled: true });
 
     // Efeito Flutuante e Inclinação 3D para o Gráfico de Economia
     const x = useMotionValue(0);
@@ -382,11 +398,54 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         setTransactionToEdit(t);
     };
 
+    // Listener para seleção externa de conta (Ex: via Configurações)
+    useEffect(() => {
+        const handleSelect = (e: any) => {
+            const accountId = e.detail;
+            if (accountId && accounts) {
+                const account = accounts.find(a => a.id === accountId);
+                if (account) setSelectedAccountForStatement(account);
+            }
+        };
+        window.addEventListener('select-account', handleSelect);
+        return () => window.removeEventListener('select-account', handleSelect);
+    }, [accounts]);
+
     return (
-        <div className="flex flex-col h-full bg-background overflow-hidden" ref={listDragRef}>
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-8 pt-6 pb-32 md:pb-8 bg-background">
-                <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8">
-                    {/* Cards Header */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth pb-32 md:pb-8 transition-all duration-500 animate-in fade-in" ref={scrollContainerRef}>
+            <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
+                
+                {/* Bank Accounts List - Horizontal Scroll */}
+                <div className="w-full overflow-hidden mb-2">
+                    <div 
+                        ref={accountsDragRef}
+                        className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-4 cursor-grab active:cursor-grabbing scroll-smooth px-1"
+                    >
+                        {accounts.filter(acc => acc.status !== 'deleted').map(acc => (
+                            <div 
+                                key={acc.id} 
+                                onClick={() => setSelectedAccountForStatement(acc)}
+                                className="min-w-[160px] md:min-w-[200px] bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all group relative overflow-hidden shrink-0"
+                            >
+                                <div className="flex justify-between items-start mb-6 relative z-10">
+                                    <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-secondary transition-colors">
+                                        <span className="material-symbols-outlined">{acc.icon || 'account_balance'}</span>
+                                    </div>
+                                    <span className="material-symbols-outlined text-dim opacity-20 group-hover:opacity-100 transition-opacity">chevron_right</span>
+                                </div>
+                                <div className="relative z-10">
+                                    <p className="text-[10px] uppercase font-black text-dim tracking-widest mb-1">{acc.name}</p>
+                                    <p className="text-lg md:text-xl font-black text-content tracking-tight">{formatCurrency(accountBalances[acc.id] || 0)}</p>
+                                </div>
+                                <div className="absolute right-[-10px] bottom-[-10px] opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                                    <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Cards Header */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6">
                         {/* Card Saldo Grande */}
                         <div className="md:col-span-2 relative overflow-hidden rounded-3xl bg-surface p-6 lg:p-8 shadow-xl group border border-gray-100 dark:border-white/5">
@@ -731,7 +790,6 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                         }
                                     })()}
                                 </p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -865,7 +923,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
             {/* Edit Transaction Modal */}
             {transactionToEdit && (
                 <EditTransactionModal 
-                    transaction={transactionToEdit}
+                    transaction={transactionToEdit as Transaction}
                     onClose={() => setTransactionToEdit(null)}
                     onSaveSuccess={() => setTransactionToEdit(null)}
                 />
@@ -879,12 +937,12 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                         <div className="flex items-center gap-3">
                             <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                                 <span className="material-symbols-outlined">
-                                    {filterSubcategory?.includes(':') ? filterSubcategory.split(':')[1].trim() : 'receipt_long'}
+                                    {filterSubcategory && filterSubcategory.includes(':') ? filterSubcategory.split(':')[1].trim() : 'receipt_long'}
                                 </span>
                             </div>
                             <div>
                                 <h2 className="text-lg font-black text-content uppercase tracking-wider">
-                                    {filterSubcategory?.split(':')[0].trim()}
+                                    {filterSubcategory?.split(':')[0].trim() || ''}
                                 </h2>
                                 <p className="text-[10px] font-bold text-dim uppercase tracking-widest">Filtrado por subcategoria</p>
                             </div>
@@ -897,7 +955,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar pb-10">
                         {(() => {
-                            const filtered = sortedFilteredTransactions.filter(t => t.subcategory === filterSubcategory);
+                            const filtered = filterSubcategory ? sortedFilteredTransactions.filter(t => t.subcategory === filterSubcategory) : [];
                             if (filtered.length === 0) {
                                 return <div className="text-center py-10 text-dim text-xs font-bold uppercase tracking-widest">Nenhuma transação encontrada.</div>;
                             }
@@ -980,7 +1038,24 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                     <span className="material-symbols-outlined text-2xl">arrow_upward</span>
                 </motion.button>
             )}
-        </div>
+            {/* Transaction Detail Modal */}
+            {selectedTransaction && (
+                <TransactionDetailModal
+                    transaction={selectedTransaction}
+                    onClose={() => setSelectedTransaction(null)}
+                />
+            )}
+
+            {/* Bank Statement Modal */}
+            {selectedAccountForStatement && (
+                <BankStatementModal 
+                    isOpen={!!selectedAccountForStatement}
+                    onClose={() => setSelectedAccountForStatement(null)}
+                    account={selectedAccountForStatement}
+                    accountBalance={accountBalances[selectedAccountForStatement.id] || 0}
+                />
+            )}
+        </main>
     );
 };
 

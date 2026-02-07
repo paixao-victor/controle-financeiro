@@ -206,7 +206,9 @@ function AppContent() {
       if (tabName) setActiveTab(tabName as any);
     };
     window.addEventListener('change-tab', handleChangeTab);
-    return () => window.removeEventListener('change-tab', handleChangeTab);
+    return () => {
+      window.removeEventListener('change-tab', handleChangeTab);
+    };
   }, []);
 
   // Fecha o menu mobile ao trocar de aba e atualiza histórico
@@ -767,7 +769,7 @@ function AppContent() {
                           Ver Perfil Completo
                         </button>
                         <button 
-                          onClick={logout}
+                          onClick={handleSwitchRequest}
                           className="w-full py-3 bg-red-500/10 text-red-500 font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl hover:bg-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
                           <span className="material-symbols-outlined text-sm">sync_alt</span>

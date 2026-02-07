@@ -436,7 +436,7 @@ function updateSubcategoryInTransactions(username, oldName, newName, categoryId 
 
 
 
-function getTransactionHeaders() { return ['id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 'paymentMethod', 'cardId', 'accountId', 'status', 'createdAt', 'updatedAt', 'currentInstallment', 'installments', 'parentTransactionId', 'notes', 'username']; }
+function getTransactionHeaders() { return ['id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 'paymentMethod', 'cardId', 'accountId', 'status', 'createdAt', 'updatedAt', 'currentInstallment', 'installments', 'parentTransactionId', 'notes', 'predictedExpenseId', 'username']; }
 function getCategoryHeaders() { return ['id', 'label', 'icon', 'type', 'subcategories', 'username']; }
 function getAccountHeaders() { return ['id', 'name', 'icon', 'balance', 'status', 'updatedAt', 'username']; }
 function getCardHeaders() { return ['id', 'alias', 'bank', 'brand', 'type', 'limit', 'closingDay', 'dueDay', 'color', 'status', 'initials', 'rechargeValue', 'rechargeDate', 'linkedAccountId', 'billStatusOverrides', 'updatedAt', 'username']; }

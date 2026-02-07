@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
-
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, differenceInDays, isPast, isToday, isSameMonth, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -38,6 +37,8 @@ const Dashboard = () => {
 
     // Elastic Chart State
     const [pullState, setPullState] = useState({ active: false, index: -1, y: 0 });
+    const [chartKey, setChartKey] = useState(0); // Key to force re-animation
+    const [animatedPercentage, setAnimatedPercentage] = useState(0);
     // AJUSTE MANUAL DE ELASTICIDADE: 
     // Para aumentar a reação, aumente o multiplicador em onMouseMove (-1.5 abaixo)
     // Para suavizar o retorno, aumente o damping (25 acima)
@@ -53,18 +54,25 @@ const Dashboard = () => {
 
     const handlePayPrediction = (prediction: any) => {
         // Agora ao invés de salvar direto, emitimos um evento para o App.tsx abrir o modal preenchido
-        const event = new CustomEvent('open-add-transaction', { 
-            detail: {
-                amount: prediction.amount,
-                category: prediction.category,
-                subcategory: prediction.subcategory,
-                notes: prediction.notes || '',
-                date: prediction.date.split('T')[0]
-            }
-        });
-        window.dispatchEvent(event);
-        setSelectedPrediction(null);
-        setSelectedPrediction(null);
+        if (prediction) {
+            window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                detail: {
+                     amount: prediction.amount,
+                     category: prediction.category,
+                     subcategory: prediction.subcategory,
+                     notes: prediction.notes || '',
+                     predictedExpenseId: prediction.id.replace('pred-', '').replace('circle-', ''), // Remove prefix
+                     date: new Date().toISOString().split('T')[0],
+                     // Pass payment details if available from Recurring Definition
+                     ...(prediction.paymentMethod ? { 
+                         paymentMethod: prediction.paymentMethod,
+                         cardId: prediction.cardId,
+                         accountId: prediction.accountId
+                     } : {})
+                }
+            }));
+            setSelectedPrediction(null);
+        }
     };
 
     const toggleBillStatus = (bill: any) => {
@@ -97,10 +105,11 @@ const Dashboard = () => {
         
         // Update local selected state to reflect immediate change if needed
         if (selectedCardDetail && selectedCardDetail.cardId === card.id) {
+             const isNowPaid = newStatus === 'closed';
              setSelectedCardDetail((prev: any) => ({ 
                  ...prev, 
-                 circleStatus: newStatus === 'closed' ? 'paid' : 'pending',
-                 isPaid: newStatus === 'closed'
+                 circleStatus: isNowPaid ? 'paid' : 'pending',
+                 isPaid: isNowPaid
              }));
         }
     };
@@ -201,8 +210,6 @@ const Dashboard = () => {
     const handleMouseLeave = () => {
         x.set(0);
         y.set(0);
-        rotateX.set(0);
-        rotateY.set(0);
     };
 
     const CHART_COLORS = ['#47f425', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -312,17 +319,14 @@ const Dashboard = () => {
             }
         });
 
-        const monthKey = format(today, 'yyyy-MM');
+        const currentMonthKey = format(selectedMonth, 'yyyy-MM');
 
         // Card Bills (Separated) - Improved logic
         const cardBills = cards.filter(c => c.status !== 'deleted' && c.type !== 'debit' && c.type !== 'food').map(card => {
             const billDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), card.dueDay || 10);
             
             // Manual overrides
-            const manualStatus = card.billStatusOverrides?.[monthKey];
-            const isPaid = manualStatus === 'closed' || currentMonthTransactions.some(t => 
-                t.paymentMethod === 'cartao' && t.cardId === card.id && t.category === 'Pagamento' && t.subcategory === 'Fatura'
-            );
+            const manualStatus = card.billStatusOverrides?.[currentMonthKey];
             
             // Média de 3 meses para este cartão
             const cardHistoricalTransactions = transactions.filter(t => 
@@ -337,13 +341,35 @@ const Dashboard = () => {
             // Gastos atuais este mês
             const billTransactions = transactions.filter(t => 
                 t.status !== 'deleted' && 
-                t.paymentMethod === 'cartao' && 
                 t.cardId === card.id && 
-                t.paymentOption === 'credit' &&
                 isSameMonth(new Date(t.date), selectedMonth)
             );
-            const currentBillAmount = billTransactions.reduce((acc, t) => acc + t.amount, 0);
 
+            // Spends (Expense on Card) - Exclude Payment transactions themselves if any
+            const currentSpends = billTransactions
+                .filter(t => t.type === 'expense' && t.category !== 'Pagamento')
+                .reduce((acc, t) => acc + t.amount, 0);
+
+            // Credits (Income on Card - Refunds)
+            const currentCredits = billTransactions
+                 .filter(t => t.type === 'income')
+                 .reduce((acc, t) => acc + t.amount, 0);
+
+            // Payments (Expenses categorized as Pagamento/Fatura linked to this card)
+            const currentPayments = transactions
+                .filter(t => 
+                    t.status !== 'deleted' && 
+                    t.type === 'expense' && 
+                    t.category === 'Pagamento' && 
+                    (t.subcategory === 'Fatura' || t.description?.toLowerCase().includes('fatura')) &&
+                    t.cardId === card.id &&
+                    isSameMonth(new Date(t.date), selectedMonth)
+                 ).reduce((acc, t) => acc + t.amount, 0);
+
+            const currentBillAmount = Math.max(0, currentSpends - currentCredits - currentPayments);
+
+            const isPaid = manualStatus === 'closed' || (currentSpends > 0 && currentBillAmount < 1);
+            
             // Valor previsto
             const predictedAmount = Math.max(cardAverage, currentBillAmount);
 
@@ -380,18 +406,26 @@ const Dashboard = () => {
                 const [subLabel, subIcon] = (t.subcategory || '').split(':');
                 const cleanDescription = subLabel || t.subcategory || t.description;
                 
+                // Busca a previsão correspondente para mostrar o valor planejado no modal
+                const matchingPred = recurringDefinitions.find((rd: any) => 
+                    t.predictedExpenseId === rd.id || 
+                    (t.subcategory?.toLowerCase() === (rd.subcategory || '').toLowerCase())
+                );
+
                 return {
                     ...t,
                     // Prioritize parsed subcategory label for clean display
                     description: cleanDescription,
                     subcategory: cleanDescription, // Update subcategory to be clean too if used elsewhere
                     // Use parsed icon if priority icon is missing or to override
-                    icon: subIcon || t.icon
+                    icon: subIcon || t.icon,
+                    predictedAmount: matchingPred?.amount || getSubcategoryAverage(t.subcategory || '', t.category) || 0,
+                    isRecurring: !!matchingPred // Flag to identify if this transaction is linked to a prediction
                 };
             });
         
         const monthlyPredictions = [
-            ...filteredExpenses,
+            ...filteredExpenses.filter(t => t.isRecurring), // Only Recurring expenses (linked to predictions)
             ...(fuelTransactions.length > 0 || fuelPrediction ? [{
                 id: 'grouped-fuel',
                 category: 'Combustível',
@@ -408,7 +442,8 @@ const Dashboard = () => {
                     if (rd.category.toLowerCase() === 'combustível') return false; 
                     return !currentMonthTransactions.some(t => 
                         t.type === 'expense' && 
-                        (t.subcategory?.toLowerCase() === (rd.subcategory || '').toLowerCase() || 
+                        (t.predictedExpenseId === rd.id ||
+                         t.subcategory?.toLowerCase() === (rd.subcategory || '').toLowerCase() || 
                          t.description?.toLowerCase().includes((rd.subcategory || rd.name).toLowerCase()))
                     );
                 })
@@ -474,6 +509,11 @@ const Dashboard = () => {
             return new Date(a.date).getTime() - new Date(b.date).getTime();
         });
 
+        // Calculate total and paid predicted expenses for the percentage
+        const totalPredictions = monthlyPredictions.length;
+        const paidPredictions = monthlyPredictions.filter((p: any) => p.circleStatus === 'paid').length;
+        const targetPercentage = totalPredictions > 0 ? Math.round((paidPredictions / totalPredictions) * 100) : 0;
+
         // Accounts Payable (Fixed + Card Bills)
         const accountsPayable = monthlyPredictions
             .filter((p: any) => {
@@ -483,18 +523,6 @@ const Dashboard = () => {
                 return p.circleStatus !== 'paid';
             })
             .sort((a: any,b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        // Porcentagem de contas pagas da totalidade de contas previstas
-        const totalPredictedCount = recurringDefinitions.length;
-        const paidPredictedCount = recurringDefinitions.filter(rd => 
-            currentMonthTransactions.some(t => 
-                t.status !== 'deleted' && 
-                t.type === 'expense' && 
-                (t.subcategory === rd.subcategory || t.description?.toLowerCase().includes((rd.subcategory || '').toLowerCase()))
-            )
-        ).length;
-        
-        const billsPercentage = totalPredictedCount > 0 ? Math.round((paidPredictedCount / totalPredictedCount) * 100) : 0;
 
         const expensesByCategory: Record<string, number> = {};
         currentMonthTransactions
@@ -521,7 +549,7 @@ const Dashboard = () => {
             totalExpense, 
             balance, 
             balanceDiff,
-            billsPercentage, 
+            billsPercentage: targetPercentage, 
             categoryData, 
             recentTransactions, 
             monthlyPredictions,
@@ -534,6 +562,27 @@ const Dashboard = () => {
             projections
         };
     }, [transactions, selectedMonth, predictedExpenses, cards]);
+
+    // Effect to trigger animation on mount/update to ensure values are current
+    useEffect(() => {
+        // Reset and then animate to target percentage
+        setAnimatedPercentage(0);
+        const timer = setTimeout(() => {
+            setAnimatedPercentage(stats.billsPercentage);
+        }, 400); // Increased from 100ms to 400ms for visibility
+        
+        // Force refresh chart on month change
+        setChartKey(prev => prev + 1);
+        
+        return () => clearTimeout(timer);
+    }, [selectedMonth, stats.billsPercentage]);
+
+    const restartAnimation = () => {
+        setAnimatedPercentage(0);
+        setTimeout(() => {
+            setAnimatedPercentage(stats.billsPercentage);
+        }, 150); // Increased slightly
+    };
 
     // Use the imported formatCurrency instead of local redeclaration
 
@@ -686,13 +735,16 @@ const Dashboard = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
                         {/* Status Mensal */}
                         <div className="flex gap-6 w-full h-[120px] lg:h-[190px]">
-                            <div className="w-[70%] bg-white/5 backdrop-blur-md rounded-xl p-3 lg:p-5 border border-white/10 flex items-center justify-between h-full relative group hover:bg-white/10 transition-colors">
+                            <div 
+                                onClick={restartAnimation}
+                                className="w-[70%] bg-white/5 backdrop-blur-md rounded-xl p-3 lg:p-5 border border-white/10 flex items-center justify-between h-full relative group hover:bg-white/10 transition-colors cursor-pointer"
+                            >
                                 <div className="absolute -right-10 -bottom-10 size-32 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all"></div>
                                 <div className="flex flex-col justify-between h-full relative z-10">
                                     <div>
                                         <span className="text-[10px] lg:text-xs font-medium text-white/60 uppercase tracking-wider">Status Mensal</span>
                                         <div className="flex items-end gap-1 mt-1 lg:mt-2">
-                                            <h1 className="text-3xl lg:text-5xl font-bold tracking-tighter text-white leading-none">{stats.billsPercentage}</h1>
+                                            <h1 className="text-3xl lg:text-5xl font-bold tracking-tighter text-white leading-none">{animatedPercentage}</h1>
                                             <span className="text-lg lg:text-2xl font-bold text-primary mb-1">%</span>
                                         </div>
                                         <span className="text-[10px] lg:text-sm font-medium text-white/80 leading-tight block mt-1">das contas pagas</span>
@@ -717,7 +769,15 @@ const Dashboard = () => {
                                     <div className="absolute inset-0 rounded-full animate-pulse-glow bg-primary/20 blur-xl z-0"></div>
                                     <svg className="size-full -rotate-90 relative z-10" viewBox="0 0 36 36">
                                         <path className="text-white/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2"></path>
-                                        <path className="text-primary drop-shadow-[0_0_12px_rgba(71,244,37,0.8)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray={`${stats.billsPercentage}, 100`} strokeLinecap="round" strokeWidth="3"></path>
+                                        <path 
+                                            className="text-primary drop-shadow-[0_0_12px_rgba(71,244,37,0.8)] transition-all duration-1000 ease-out" 
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            strokeDasharray={`${animatedPercentage}, 100`} 
+                                            strokeLinecap="round" 
+                                            strokeWidth="3"
+                                        ></path>
                                     </svg>
                                     <span className="material-symbols-outlined text-white absolute text-xl lg:text-3xl z-20">check_circle</span>
                                 </div>
@@ -836,7 +896,7 @@ const Dashboard = () => {
                                             </div>
                                             
                                             <div className="flex flex-col items-end shrink-0">
-                                                <p className={`text-xl font-black text-content tracking-tighter leading-none ${bill.circleStatus === 'paid' ? 'opacity-40' : ''}`}>{formatValue(bill.amount, formatCurrency)}</p>
+                                                <p className="text-xl font-black text-content tracking-tighter leading-none">{formatValue(bill.amount, formatCurrency)}</p>
                                                 <div className="mt-2 text-right">
                                                     <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                                                         bill.circleStatus === 'urgent' || bill.circleStatus === 'overdue' ? 'bg-red-500 text-white animate-pulse' : 
@@ -985,12 +1045,31 @@ const Dashboard = () => {
                 <div className="w-[calc(100%+3rem)] -mx-6 -mt-10 lg:hidden relative z-30">
                     <div ref={statusDragRef} className="overflow-x-auto no-scrollbar w-full cursor-grab active:cursor-grabbing pb-4 pl-6 pr-6">
                         <div className="flex gap-4 justify-start w-full min-w-max">
-                             {stats.monthlyPredictions.map((pred: any, i: number) => (
+                             {stats.monthlyPredictions
+                                .filter((pred: any) => pred.isPrediction || pred.isCardBill || pred.isRecurring || pred.id === 'grouped-fuel')
+                                .map((pred: any, i: number) => (
                                 <div 
                                     key={i} 
                                      onClick={(e) => { 
                                         e.stopPropagation(); 
-                                        setBillActionMenu({ isOpen: true, bill: pred });
+                                        const selectedBill = billActionMenu.bill;
+                                        if (selectedBill && selectedBill.isCardBill) {
+                                            window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                                detail: {
+                                                    amount: selectedBill.predictedAmount || selectedBill.amount,
+                                                    category: 'Pagamento',
+                                                    subcategory: 'Fatura',
+                                                    description: `Pagamento Fatura ${selectedBill.subcategory}`,
+                                                    date: new Date().toISOString().split('T')[0], // Use today's date for payment
+                                                    cardId: selectedBill.cardId, // Pass cardId to link payment
+                                                    paymentMethod: 'banco', // Usually paid from bank
+                                                    notes: `Pagamento de fatura: ${selectedBill.subcategory}`
+                                                }
+                                            }));
+                                            setBillActionMenu({ isOpen: false, bill: null });
+                                        } else {
+                                            setBillActionMenu({ isOpen: true, bill: pred });
+                                        }
                                     }}
                                     className="flex flex-col items-center gap-2 group w-[22vw] md:w-[18vw] shrink-0 transform transition-transform active:scale-95"
                                 >
@@ -1040,7 +1119,9 @@ const Dashboard = () => {
                         ref={statusDragRefDesktop}
                         className="flex overflow-x-auto gap-8 no-scrollbar px-2 cursor-grab active:cursor-grabbing scroll-smooth w-full items-center"
                     >
-                        {stats.monthlyPredictions.map((pred: any, i: number) => (
+                        {stats.monthlyPredictions
+                            .filter((pred: any) => pred.isPrediction || pred.isCardBill || pred.isRecurring || pred.id === 'grouped-fuel')
+                            .map((pred: any, i: number) => (
                             <div 
                                 key={i} 
                                 onClick={(e) => { 
@@ -1112,7 +1193,7 @@ const Dashboard = () => {
                             >
                                 <motion.div style={{ x: mouseXSpring, y: mouseYSpring, rotateX: rotateXSpring, rotateY: rotateYSpring, perspective: 1000 }} className="w-full h-full relative">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
+                                        <PieChart key={chartKey} onClick={() => setChartKey(prev => prev + 1)}>
                                             <Pie 
                                                 data={stats.categoryData} 
                                                 cx="50%" 
@@ -1122,7 +1203,7 @@ const Dashboard = () => {
                                                 paddingAngle={8} 
                                                 dataKey="value" 
                                                 stroke="none" 
-                                                animationBegin={200} 
+                                                animationBegin={0} 
                                                 animationDuration={1500} 
                                                 className="spinning-pie"
                                                 {...({
@@ -1619,23 +1700,30 @@ const Dashboard = () => {
                 onClose={() => setBillActionMenu({ isOpen: false, bill: null })}
                 title="Ações da Conta"
                 options={[
+                    { id: 'view', label: 'Ver Detalhes', icon: 'visibility' },
                     { id: 'pay', label: 'Pagar Conta', icon: 'payments' },
-                    { id: 'edit', label: 'Editar', icon: 'edit' },
                     { id: 'delete', label: 'Excluir este mês', icon: 'delete' }
                 ]}
                 onSelect={(opt) => {
                     const bill = billActionMenu.bill;
                     if (opt.id === 'pay') {
+                        // Extrair ID limpo para prever vínculo
+                        const rawId = bill.id.replace('pred-', '').replace('circle-', '').replace('proj-', '');
+                        // Se for uma conta já salva (não previsão pura), o predictedExpenseId pode estar no objeto original se tivéssemos acesso, 
+                        // mas aqui usamos o ID da previsão se disponível.
+                        
                         window.dispatchEvent(new CustomEvent('open-add-transaction', {
                             detail: {
                                 amount: bill.amount,
-                                category: bill.category,
-                                subcategory: bill.subcategory,
+                                category: bill.isCardBill ? 'Pagamento' : bill.category,
+                                subcategory: bill.isCardBill ? 'Fatura' : bill.subcategory,
                                 notes: bill.description || '',
-                                date: bill.date
+                                date: bill.date,
+                                cardId: bill.cardId,
+                                predictedExpenseId: bill.isPrediction ? rawId : (bill.predictedExpenseId || null)
                             }
                         }));
-                    } else if (opt.id === 'edit') {
+                    } else if (opt.id === 'view') {
                         if (bill.id === 'grouped-fuel') setSelectedFuelDetail(bill);
                         else if (bill.isCardBill) setSelectedCardDetail(bill);
                         else setSelectedPrediction(bill);

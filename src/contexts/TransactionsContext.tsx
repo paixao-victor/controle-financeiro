@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Transaction, Card, Account, PredictedExpense, PredictedIncome } from '@/types';
 import { fetchAppData, syncAllData } from '../utils/syncService';
 import { useAuth } from './AuthContext';
@@ -106,6 +106,7 @@ interface TransactionsContextType {
     forceRefresh: () => Promise<void>;
     hasFullHistory: boolean;
     pullFullHistory: () => Promise<void>;
+    accountBalances: Record<string, number>;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -127,6 +128,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const firstLoadDone = useRef(false);
 
     const [hasFullHistory, setHasFullHistory] = useState(false);
+
+    const accountBalances = useMemo(() => {
+        const balances: Record<string, number> = {};
+        if (!accounts) return balances;
+        accounts.forEach(acc => {
+            const accTrans = transactions.filter(t => t.accountId === acc.id && t.status !== 'deleted');
+            const inc = accTrans.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const exp = accTrans.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            balances[acc.id] = acc.balance + inc - exp;
+        });
+        return balances;
+    }, [accounts, transactions]);
 
     // Helper to convert flat category list from backend to grouped structure
     const regroupCategories = (flatCategories: any[]): CategoryGroup => {
@@ -711,7 +724,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             lastSync,
             forceRefresh: pullFromSheets,
             hasFullHistory,
-            pullFullHistory
+            pullFullHistory,
+            accountBalances
         }}>
             {children}
         </TransactionsContext.Provider>

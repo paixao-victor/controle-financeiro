@@ -19,7 +19,7 @@ const BANKS = [
 ];
 
 const AccountsPayable: React.FC = () => {
-    const { transactions, currentCurrency, predictedExpenses, predictedIncomes, cards } = useTransactions();
+    const { transactions, currentCurrency, predictedExpenses, predictedIncomes, cards, accounts } = useTransactions();
     const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
@@ -43,7 +43,6 @@ const AccountsPayable: React.FC = () => {
         setFutureOffset(9);
     }, [viewType]);
 
-    const { accounts } = useTransactions(); // Need accounts for icons
     const scrollRef = useDragScroll();
 
     // Tooltip Persistent Timer & Click Outside
@@ -104,6 +103,7 @@ const AccountsPayable: React.FC = () => {
 
 
 
+
     // Grouping and calculations
     const stats = useMemo(() => {
         const monthStart = startOfMonth(selectedMonth);
@@ -123,18 +123,24 @@ const AccountsPayable: React.FC = () => {
             const safeDueDay = p.dueDay >= 31 ? lastDay : Math.min(p.dueDay, lastDay);
             const billDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), safeDueDay);
             
-            const isPaid = filteredTransactions.some((t: any) => 
-                t.type === 'expense' &&
-                t.category === p.category && 
-                t.subcategory === p.subcategory
+            // Tenta encontrar a transação real que corresponde a esta previsão
+            // Prioridade: predictedExpenseId > (categoria + subcategoria)
+            const actualTransaction = filteredTransactions.find((t: any) => 
+                (t.predictedExpenseId === p.id) || 
+                (t.type === 'expense' && 
+                 t.category === p.category && 
+                 t.subcategory === p.subcategory)
             );
 
-                const [subLabel, subIcon] = (p.subcategory || '').split(':');
+            const isPaid = !!actualTransaction;
+            const [subLabel, subIcon] = (p.subcategory || '').split(':');
                 
             return [{
                 id: `proj-${p.id}-${monthKey}`,
-                description: p.notes || subLabel || p.category,
-                amount: p.amount,
+                // Prioriza descrição/notas da transação real se já estiver paga
+                description: actualTransaction?.description || actualTransaction?.notes || p.notes || subLabel || p.category,
+                notes: actualTransaction?.notes || p.notes || '',
+                amount: actualTransaction?.amount || p.amount,
                 date: format(billDate, 'yyyy-MM-dd'),
                 category: p.category,
                 subcategory: subLabel,
@@ -418,10 +424,12 @@ const AccountsPayable: React.FC = () => {
         }
     }, [viewType, stats.chartData]);
 
+
     // Refs para o scroll por arraste (mouse)
     return (
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth pb-32 md:pb-8 transition-all duration-500 animate-in fade-in">
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
+                
                 
                 {/* Header Context Bar */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
@@ -988,24 +996,28 @@ const AccountsPayable: React.FC = () => {
                 onClose={() => setBillActionMenu({ isOpen: false, bill: null })}
                 title="Ações da Conta"
                 options={[
+                    { id: 'view', label: 'Ver Detalhes', icon: 'visibility' },
                     { id: 'pay', label: 'Pagar Conta', icon: 'payments' },
-                    { id: 'edit', label: 'Editar', icon: 'edit' },
                     { id: 'delete', label: 'Excluir este mês', icon: 'delete' }
                 ]}
                 onSelect={(opt: any) => {
                     const bill = billActionMenu.bill;
                     if (opt.id === 'pay') {
+                        // Extrair ID limpo para prever vínculo
+                        const rawId = bill.id.replace('pred-', '').replace('circle-', '').replace('proj-', '');
+                        
                         window.dispatchEvent(new CustomEvent('open-add-transaction', {
                             detail: {
                                 amount: bill.amount,
                                 category: bill.category,
                                 subcategory: bill.subcategory,
                                 notes: bill.description || '',
-                                date: bill.date
+                                date: bill.date,
+                                predictedExpenseId: bill.isPrediction ? rawId : (bill.predictedExpenseId || null)
                             }
                         }));
-                    } else if (opt.id === 'edit') {
-                        setTransactionToEdit(bill);
+                    } else if (opt.id === 'view') {
+                        setSelectedBillForDetail(bill);
                     } else if (opt.id === 'delete') {
                         if (confirm('Deseja realmente ocultar esta conta este mês?')) {
                             alert('Funcionalidade de exclusão pontual será implementada na sincronização.');
@@ -1158,6 +1170,7 @@ const AccountsPayable: React.FC = () => {
                     </>
                 )}
             </Modal>
+
         </main>
     );
 };
