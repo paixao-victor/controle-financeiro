@@ -71,7 +71,7 @@ const NavItem = ({ icon, label, isActive, onClick, badge, isExpanded = true }: N
           )}
       </div>
       
-      <div className={`flex-1 flex items-center transition-all duration-300 overflow-hidden ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0'}`}>
+      <div className={`${isExpanded ? 'flex-1 ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0 flex-none'} flex items-center transition-all duration-300 overflow-hidden`}>
         <span className={`font-semibold text-sm whitespace-nowrap ${isActive ? 'text-content' : ''}`}>
           {label}
         </span>
@@ -393,7 +393,7 @@ function AppContent() {
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto w-full">
+        <nav className="flex-1 items-center px-4 space-y-2 overflow-y-auto w-full">
           <div className="px-3 mb-2">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Principal</span>
           </div>
@@ -469,7 +469,7 @@ function AppContent() {
         onClick={toggleSidebar}
         className={`hidden md:flex flex-col glass-dock z-60 h-full fixed top-0 left-0 transition-all duration-300 py-8 overflow-y-auto custom-scrollbar cursor-pointer group/sidebar ${isExpanded ? 'w-64 shadow-2xl' : 'w-20'} items-stretch border-r border-white/5`}
       >
-        <div className={`mb-8 flex items-center px-4 justify-between gap-3 relative h-12`}>
+        <div className={`mb-8 flex items-center ${isExpanded ? 'px-4 justify-between' : 'justify-center'} gap-3 relative h-12`}>
           <div 
             className="flex items-center gap-2 cursor-pointer" 
             onClick={(e) => {
@@ -477,7 +477,7 @@ function AppContent() {
               handleTabChange(TABS.DASHBOARD);
             }}
           >
-            <img src="/logo-animated.svg" alt="Logo" className={`${isExpanded ? 'size-16' : 'size-16'}`} />
+            <img src="/logo-animated.svg" alt="Logo" className="size-16" />
             {isExpanded && (
               <span className="font-extrabold text-xl tracking-tight text-content animate-in fade-in slide-in-from-left-4 duration-300">
                 Controle<span className="text-primary"> Financeiro</span>
@@ -502,8 +502,8 @@ function AppContent() {
         </div>
 
         {/* Nav Links */}
-        <nav className={`flex-1 space-y-1 flex items-center flex-col w-full transition-all duration-300 ${isExpanded ? 'px-4' : 'px-0'}`}>
-          <div className="px-4 h-6 flex items-center mt-2 transition-all duration-300">
+        <nav className={`flex-1 space-y-2 flex items-center flex-col w-full transition-all duration-300 ${isExpanded ? 'px-4' : 'px-0'}`}>
+          <div className={`${isExpanded ? 'px-4' : 'px-0'} h-6 flex items-center mt-2 transition-all duration-300`}>
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Principal</span>
             ) : (
@@ -561,7 +561,7 @@ function AppContent() {
             isExpanded={isExpanded}
           />
 
-          <div className="px-4 h-6 flex items-center mt-6 transition-all duration-300">
+          <div className={`${isExpanded ? 'px-4' : 'px-0'} h-6 flex items-center mt-6 transition-all duration-300`}>
             {isExpanded ? (
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim whitespace-nowrap animate-in fade-in duration-300">Gerenciamento</span>
             ) : (
@@ -578,7 +578,7 @@ function AppContent() {
         </nav>
 
         {/* Bottom Config & Toggle */}
-        <div className="mt-auto pt-6 border-t border-white/5 w-full px-4 flex flex-col gap-1">
+        <div className={`mt-auto pt-6 border-t border-white/5 w-full ${isExpanded ? 'px-4' : 'px-0'} flex flex-col gap-1 items-stretch`}>
           {isExpanded && (
             <div className="px-3 mb-2">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim opacity-50">Ajustes</span>
@@ -615,12 +615,12 @@ function AppContent() {
               e.stopPropagation();
               handleLogoutRequest();
             }}
-            className={`flex items-center h-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all mt-2 px-4`}
+            className={`flex items-center h-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all mt-2 ${isExpanded ? 'px-4' : 'justify-center px-0 w-full'}`}
           >
             <div className="flex items-center justify-center w-8 shrink-0">
               <span className="material-symbols-outlined text-xl">logout</span>
             </div>
-            <div className={`flex-1 transition-all duration-300 overflow-hidden ${isExpanded ? 'ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0'}`}>
+            <div className={`${isExpanded ? 'flex-1 ml-3 opacity-100 w-auto' : 'w-0 opacity-0 ml-0 flex-none'} transition-all duration-300 overflow-hidden`}>
               <span className="text-sm font-bold whitespace-nowrap">Sair</span>
             </div>
           </button>

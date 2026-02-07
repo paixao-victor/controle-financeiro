@@ -11,7 +11,8 @@ const CONFIG = {
     cards: 'Cards',
     predicted: 'Predicted',
     predictedIncomes: 'PredictedIncomes',
-    users: 'Users'
+    users: 'Users',
+    notifications: 'Notifications'
   }
 };
 
@@ -67,6 +68,12 @@ function doPost(e) {
           payload.categoryId || null
         );
         break;
+      case 'syncNotifications':
+        result = syncNotifications(payload.username, payload.notifications);
+        break;
+      case 'getNotifications':
+        result = getNotifications(payload.username);
+        break;
       default:
         throw new Error('Ação inválida: ' + action);
     }
@@ -107,7 +114,8 @@ function checkAndRepairHeaders() {
     [CONFIG.sheets.categories]: getCategoryHeaders(),
     [CONFIG.sheets.categories]: getCategoryHeaders(),
     [CONFIG.sheets.predicted]: getPredictedHeaders(),
-    [CONFIG.sheets.predictedIncomes]: getPredictedIncomeHeaders()
+    [CONFIG.sheets.predictedIncomes]: getPredictedIncomeHeaders(),
+    [CONFIG.sheets.notifications]: getNotificationHeaders()
   };
 
   Object.keys(map).forEach(sheetName => {
@@ -352,7 +360,8 @@ function cleanOrphanData() {
     CONFIG.sheets.cards,
     CONFIG.sheets.cards,
     CONFIG.sheets.predicted,
-    CONFIG.sheets.predictedIncomes
+    CONFIG.sheets.predictedIncomes,
+    CONFIG.sheets.notifications
   ];
   
   let totalRemoved = 0;
@@ -425,6 +434,8 @@ function updateSubcategoryInTransactions(username, oldName, newName, categoryId 
   return { success: true, updated };
 }
 
+
+
 function getTransactionHeaders() { return ['id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 'paymentMethod', 'cardId', 'accountId', 'status', 'createdAt', 'updatedAt', 'currentInstallment', 'installments', 'parentTransactionId', 'notes', 'username']; }
 function getCategoryHeaders() { return ['id', 'label', 'icon', 'type', 'subcategories', 'username']; }
 function getAccountHeaders() { return ['id', 'name', 'icon', 'balance', 'status', 'updatedAt', 'username']; }
@@ -432,6 +443,58 @@ function getCardHeaders() { return ['id', 'alias', 'bank', 'brand', 'type', 'lim
 function getPredictedHeaders() { return ['id', 'subcategory', 'amount', 'predictedAmount', 'category', 'dueDay', 'icon', 'color', 'notes', 'username']; }
 function getPredictedIncomeHeaders() { return ['id', 'subcategory', 'amount', 'predictedAmount', 'category', 'receiveDay', 'targetAccount', 'recurrencePeriod', 'customInterval', 'customPeriod', 'icon', 'color', 'notes', 'username']; }
 function getUserHeaders() { return ['id', 'username', 'password', 'name', 'email', 'photo', 'currency', 'createdAt']; }
+function getNotificationHeaders() { return ['username', 'notificationData', 'lastUpdate']; }
+
+/**
+ * Salva as notificações de um usuário como um JSON único por simplicidade e performance
+ */
+function syncNotifications(username, notifications) {
+  const ss = getSS();
+  const sheet = ss.getSheetByName(CONFIG.sheets.notifications);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const userIdx = headers.indexOf('username');
+  
+  // Procura linha existente
+  let rowIdx = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][userIdx]).toLowerCase() === String(username).toLowerCase()) {
+      rowIdx = i + 1;
+      break;
+    }
+  }
+  
+  const payload = [username, JSON.stringify(notifications), new Date()];
+  
+  if (rowIdx !== -1) {
+    sheet.getRange(rowIdx, 1, 1, 3).setValues([payload]);
+  } else {
+    sheet.appendRow(payload);
+  }
+  
+  return { success: true };
+}
+
+function getNotifications(username) {
+  const ss = getSS();
+  const sheet = ss.getSheetByName(CONFIG.sheets.notifications);
+  if (!sheet) return { notifications: [] };
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const userIdx = headers.indexOf('username');
+  const dataIdx = headers.indexOf('notificationData');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][userIdx]).toLowerCase() === String(username).toLowerCase()) {
+      return { 
+        notifications: JSON.parse(data[i][dataIdx] || '[]') 
+      };
+    }
+  }
+  
+  return { notifications: [] };
+}
 
 function doGet(e) {
   return ContentService.createTextOutput("Serviço Financeiro v7.4 Ativo (Predicted Incomes)").setMimeType(ContentService.MimeType.TEXT);
