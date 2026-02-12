@@ -1,6 +1,6 @@
 /**
  * CONFIGURAÇÃO DO SERVIDOR (Google Apps Script)
- * v7.2 - Dynamic Mapping & Legacy Migration
+ * v8.0 - Fuel Details Columns & Consistency
  */
 const CONFIG = {
   spreadsheetId: '1W5vEDWgNGqcrwSZww_cqcj1bvCHNkR7I-Lp7wCluorc', 
@@ -93,13 +93,32 @@ function doPost(e) {
 }
 
 /**
- * Mapeia um objeto para uma linha com base nos cabeçalhos REAIS da planilha
+ * Mapeia um objeto para uma linha com base nos cabeçalhos REAIS da planilha.
+ * Para transações com fuelDetails (objeto), extrai os campos individuais.
  */
 function mapObjectToRow(headers, obj, ownerUsername) {
   return headers.map(h => {
     if (h === 'username') return ownerUsername || obj[h] || '';
+
+    // Extrair campos de fuelDetails automaticamente
+    if (['fuelStationName', 'fuelOdometer', 'fuelLiters', 'fuelType', 'fuelPricePerLiter'].includes(h)) {
+      const fd = obj.fuelDetails;
+      if (!fd) return '';
+      const map = {
+        fuelStationName: fd.stationName,
+        fuelOdometer: fd.odometer,
+        fuelLiters: fd.liters,
+        fuelType: fd.fuelType,
+        fuelPricePerLiter: fd.pricePerLiter
+      };
+      const val = map[h];
+      return (val !== undefined && val !== null) ? val : '';
+    }
+
     let val = obj[h];
     if (h === 'subcategories' && Array.isArray(val)) return val.join(';');
+    // Serializar fuelDetails como JSON string para referência (coluna legada)
+    if (h === 'fuelDetails' && typeof val === 'object' && val !== null) return JSON.stringify(val);
     return (val !== undefined && val !== null) ? val : '';
   });
 }
@@ -111,7 +130,6 @@ function checkAndRepairHeaders() {
     [CONFIG.sheets.transactions]: getTransactionHeaders(),
     [CONFIG.sheets.accounts]: getAccountHeaders(),
     [CONFIG.sheets.cards]: getCardHeaders(),
-    [CONFIG.sheets.categories]: getCategoryHeaders(),
     [CONFIG.sheets.categories]: getCategoryHeaders(),
     [CONFIG.sheets.predicted]: getPredictedHeaders(),
     [CONFIG.sheets.predictedIncomes]: getPredictedIncomeHeaders(),
@@ -265,6 +283,10 @@ function syncData(sheetName, items, headers, ownerUsername) {
   return { status: 'ok' };
 }
 
+/**
+ * getAppData - Retorna os dados do usuário.
+ * Para transações, reconstrói o fuelDetails a partir das colunas individuais.
+ */
 function getAppData(username, isFullPull = false) {
   if (!username) throw new Error('Username é obrigatório.');
   const ss = getSS();
@@ -296,8 +318,38 @@ function getAppData(username, isFullPull = false) {
       headers.forEach((h, i) => {
         let val = row[i];
         if (h === 'subcategories' && typeof val === 'string' && val.includes(';')) val = val.split(';');
+        
+        // Garantir que datas sejam enviadas como string YYYY-MM-DD para evitar problemas de fuso horário
+        if (val instanceof Date && (h === 'date' || h.toLowerCase().includes('date'))) {
+          val = Utilities.formatDate(val, ss.getSpreadsheetTimeZone() || "GMT", "yyyy-MM-dd");
+        }
+        
         obj[h] = (val === '' || val === undefined) ? null : val;
       });
+
+      // Reconstruir fuelDetails a partir das colunas individuais (para transações)
+      if (key === 'transactions') {
+        const hasFuelData = obj.fuelStationName || obj.fuelOdometer || obj.fuelLiters || obj.fuelType || obj.fuelPricePerLiter;
+        if (hasFuelData) {
+          obj.fuelDetails = {
+            stationName: obj.fuelStationName || null,
+            odometer: obj.fuelOdometer ? Number(obj.fuelOdometer) : null,
+            liters: obj.fuelLiters ? Number(obj.fuelLiters) : null,
+            fuelType: obj.fuelType || null,
+            pricePerLiter: obj.fuelPricePerLiter ? Number(obj.fuelPricePerLiter) : null
+          };
+        } else if (obj.fuelDetails && typeof obj.fuelDetails === 'string') {
+          // Fallback: tentar parsear JSON legado
+          try { obj.fuelDetails = JSON.parse(obj.fuelDetails); } catch(e) { obj.fuelDetails = null; }
+        }
+        // Limpar colunas auxiliares do resultado
+        delete obj.fuelStationName;
+        delete obj.fuelOdometer;
+        delete obj.fuelLiters;
+        delete obj.fuelType;
+        delete obj.fuelPricePerLiter;
+      }
+
       return obj;
     });
     
@@ -357,7 +409,6 @@ function cleanOrphanData() {
     CONFIG.sheets.transactions,
     CONFIG.sheets.accounts,
     CONFIG.sheets.categories,
-    CONFIG.sheets.cards,
     CONFIG.sheets.cards,
     CONFIG.sheets.predicted,
     CONFIG.sheets.predictedIncomes,
@@ -436,11 +487,20 @@ function updateSubcategoryInTransactions(username, oldName, newName, categoryId 
 
 
 
-function getTransactionHeaders() { return ['id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 'paymentMethod', 'cardId', 'accountId', 'status', 'createdAt', 'updatedAt', 'currentInstallment', 'installments', 'parentTransactionId', 'notes', 'predictedExpenseId', 'username']; }
+function getTransactionHeaders() { 
+  return [
+    'id', 'date', 'amount', 'description', 'category', 'subcategory', 'type', 
+    'paymentMethod', 'cardId', 'accountId', 'paymentOption', 'status', 
+    'createdAt', 'updatedAt', 'currentInstallment', 'installments', 
+    'parentTransactionId', 'notes', 'predictedExpenseId', 'verified',
+    'fuelDetails', 'fuelStationName', 'fuelOdometer', 'fuelLiters', 'fuelType', 'fuelPricePerLiter',
+    'username'
+  ]; 
+}
 function getCategoryHeaders() { return ['id', 'label', 'icon', 'type', 'subcategories', 'username']; }
 function getAccountHeaders() { return ['id', 'name', 'icon', 'balance', 'status', 'updatedAt', 'username']; }
 function getCardHeaders() { return ['id', 'alias', 'bank', 'brand', 'type', 'limit', 'closingDay', 'dueDay', 'color', 'status', 'initials', 'rechargeValue', 'rechargeDate', 'linkedAccountId', 'billStatusOverrides', 'updatedAt', 'username']; }
-function getPredictedHeaders() { return ['id', 'subcategory', 'amount', 'predictedAmount', 'category', 'dueDay', 'icon', 'color', 'notes', 'username']; }
+function getPredictedHeaders() { return ['id', 'subcategory', 'amount', 'predictedAmount', 'category', 'dueDay', 'icon', 'color', 'notes', 'paymentMethod', 'cardId', 'accountId', 'status', 'username']; }
 function getPredictedIncomeHeaders() { return ['id', 'subcategory', 'amount', 'predictedAmount', 'category', 'receiveDay', 'targetAccount', 'recurrencePeriod', 'customInterval', 'customPeriod', 'icon', 'color', 'notes', 'username']; }
 function getUserHeaders() { return ['id', 'username', 'password', 'name', 'email', 'photo', 'currency', 'createdAt']; }
 function getNotificationHeaders() { return ['username', 'notificationData', 'lastUpdate']; }
@@ -497,5 +557,5 @@ function getNotifications(username) {
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput("Serviço Financeiro v7.4 Ativo (Predicted Incomes)").setMimeType(ContentService.MimeType.TEXT);
+  return ContentService.createTextOutput("Serviço Financeiro v8.0 Ativo (Fuel Details Columns)").setMimeType(ContentService.MimeType.TEXT);
 }

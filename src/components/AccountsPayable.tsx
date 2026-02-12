@@ -544,29 +544,29 @@ const AccountsPayable: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex bg-background-light dark:bg-black/20 p-1 rounded-xl shadow-inner z-10 transition-colors">
-                                <button 
-                                    onClick={() => setViewType('sem')}
-                                    className={`text-[10px] font-black px-4 py-2 rounded-lg transition-all ${viewType === 'sem' ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm' : 'text-dim hover:text-content'}`}
-                                >
-                                    SEM
-                                </button>
-                                <button 
-                                    onClick={() => setViewType('mes')}
-                                    className={`text-[10px] font-black px-4 py-2 rounded-lg transition-all ${viewType === 'mes' ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm' : 'text-dim hover:text-content'}`}
-                                >
-                                    MÊS
-                                </button>
-                            </div>
-                            
-                            {/* Visible Range Indicator */}
-                            {visibleRangeText && (
-                                <div className="text-center mt-2">
-                                    <span className="text-[8px] font-bold text-dim uppercase tracking-wider">
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="flex bg-background-light dark:bg-black/20 p-1 rounded-xl shadow-inner z-10 transition-colors">
+                                    <button 
+                                        onClick={() => setViewType('sem')}
+                                        className={`text-[10px] font-black px-4 py-2 rounded-lg transition-all ${viewType === 'sem' ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm' : 'text-dim hover:text-content'}`}
+                                    >
+                                        SEM
+                                    </button>
+                                    <button 
+                                        onClick={() => setViewType('mes')}
+                                        className={`text-[10px] font-black px-4 py-2 rounded-lg transition-all ${viewType === 'mes' ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm' : 'text-dim hover:text-content'}`}
+                                    >
+                                        MÊS
+                                    </button>
+                                </div>
+                                
+                                {/* Visible Range Indicator */}
+                                {visibleRangeText && (
+                                    <span className="text-[10px] font-black text-dim uppercase tracking-widest opacity-60 mr-1">
                                         {visibleRangeText}
                                     </span>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
 
                         <div 
@@ -1030,55 +1030,59 @@ const AccountsPayable: React.FC = () => {
             <Modal isOpen={!!selectedBillForDetail} onClose={() => setSelectedBillForDetail(null)} className="overflow-visible">
                 {selectedBillForDetail && (
                     <>
-                        <div className="hidden md:flex absolute -top-[270px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
-                            <div className="pointer-events-auto w-[60%] max-w-lg animate-in slide-in-from-bottom-8 duration-500">
-                                <div 
-                                    className="w-full aspect-[1.586/1] rounded-4xl shadow-2xl overflow-hidden border border-white/20 relative transform hover:scale-105 transition-transform duration-300"
-                                    style={{ 
-                                        backgroundColor: selectedBillForDetail?.color,
-                                        background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`,
-                                    }}
-                                >
-                                     <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
-                                    <div className="relative p-7 h-full flex flex-col justify-between text-white">
-                                        <div className="flex justify-between items-start">
-                                            <div className="size-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-                                                <span className="font-black text-sm">
-                                                    {(() => {
-                                                        const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
-                                                        return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
-                                                    })()}
-                                                </span>
-                                            </div>
-                                            <span className="material-symbols-outlined opacity-60 text-3xl">contactless</span>
-                                        </div>
-                                        <div className="flex justify-between items-end">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] uppercase opacity-70 font-medium tracking-widest leading-none text-left">Cartão</span>
-                                                <span className="font-bold tracking-tight text-xl truncate max-w-[220px] text-left">{selectedBillForDetail?.subcategory}</span>
-                                            </div>
-                                            {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
-                                                <div className="flex flex-col items-end">
-                                                    <div className="flex -space-x-1.5 opacity-90">
-                                                        <div className="size-5 rounded-full bg-[#eb001b]" />
-                                                        <div className="size-5 rounded-full bg-[#f79e1b]" />
-                                                    </div>
-                                                    <span className="text-[7px] font-black uppercase tracking-tighter opacity-80 mt-0.5">mastercard</span>
+                        {selectedBillForDetail && selectedBillForDetail.isCard && (
+                            <div className="hidden md:flex absolute -top-[270px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
+                                <div className="pointer-events-auto w-[60%] max-w-lg animate-in slide-in-from-bottom-8 duration-500">
+                                    <div 
+                                        className="w-full aspect-[1.586/1] rounded-4xl shadow-2xl overflow-hidden border border-white/20 relative transform hover:scale-105 transition-transform duration-300"
+                                        style={{ 
+                                            backgroundColor: selectedBillForDetail?.color,
+                                            background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`,
+                                        }}
+                                    >
+                                         <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
+                                        <div className="relative p-7 h-full flex flex-col justify-between text-white">
+                                            <div className="flex justify-between items-start">
+                                                <div className="size-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
+                                                    <span className="font-black text-sm">
+                                                        {(() => {
+                                                            const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
+                                                            return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
+                                                        })()}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <p className="italic font-black text-xl opacity-90 tracking-tighter">VISA</p>
-                                            )}
+                                                <span className="material-symbols-outlined opacity-60 text-3xl">contactless</span>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] uppercase opacity-70 font-medium tracking-widest leading-none text-left">Cartão</span>
+                                                    <span className="font-bold tracking-tight text-xl truncate max-w-[220px] text-left">{selectedBillForDetail?.subcategory}</span>
+                                                </div>
+                                                {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
+                                                    <div className="flex flex-col items-end">
+                                                        <div className="flex -space-x-1.5 opacity-90">
+                                                            <div className="size-5 rounded-full bg-[#eb001b]" />
+                                                            <div className="size-5 rounded-full bg-[#f79e1b]" />
+                                                        </div>
+                                                        <span className="text-[7px] font-black uppercase tracking-tighter opacity-80 mt-0.5">mastercard</span>
+                                                    </div>
+                                                ) : (
+                                                    <p className="italic font-black text-xl opacity-90 tracking-tighter">VISA</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="flex flex-col h-full max-h-[85vh] p-1 overflow-y-auto custom-scrollbar relative">
                             <div className="flex items-center justify-between p-4 md:p-6 mb-2">
                                 <div>
-                                    <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedBillForDetail?.subcategory}</h3>
-                                    <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Fatura de {format(new Date(), 'MMMM', { locale: ptBR })}</p>
+                                    <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedBillForDetail?.description || selectedBillForDetail?.subcategory}</h3>
+                                    <p className="text-[10px] text-dim font-bold uppercase tracking-widest">
+                                        {selectedBillForDetail?.isCard ? `Fatura de ${format(new Date(), 'MMMM', { locale: ptBR })}` : `Vencimento em ${format(parseISO(selectedBillForDetail?.date), 'dd/MM/yyyy')}`}
+                                    </p>
                                 </div>
                                 <button 
                                     onClick={() => setSelectedBillForDetail(null)}
@@ -1088,46 +1092,48 @@ const AccountsPayable: React.FC = () => {
                                 </button>
                             </div>
 
-                            <div className="md:hidden px-6 pb-6">
-                                <div 
-                                    className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
-                                    style={{ 
-                                        backgroundColor: selectedBillForDetail?.color,
-                                        background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`
-                                    }}
-                                >
-                                    <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
-                                    <div className="relative p-5 h-full flex flex-col justify-between text-white">
-                                        <div className="flex justify-between items-start">
-                                            <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-                                                <span className="font-black text-xs">
-                                                    {(() => {
-                                                        const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
-                                                        return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
-                                                    })()}
-                                                </span>
-                                            </div>
-                                            <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
-                                        </div>
-                                        <div className="flex justify-between items-end">
-                                            <div>
-                                                <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedBillForDetail?.subcategory}</p>
-                                                <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedBillForDetail?.amount || 0)}</p>
-                                            </div>
-                                            {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
-                                                <div className="flex flex-col items-end">
-                                                    <div className="flex -space-x-1 opacity-90">
-                                                        <div className="size-4 rounded-full bg-[#eb001b]" />
-                                                        <div className="size-4 rounded-full bg-[#f79e1b]" />
-                                                    </div>
+                            {selectedBillForDetail?.isCard && (
+                                <div className="md:hidden px-6 pb-6">
+                                    <div 
+                                        className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
+                                        style={{ 
+                                            backgroundColor: selectedBillForDetail?.color,
+                                            background: `linear-gradient(135deg, ${selectedBillForDetail?.color} 0%, #000 150%)`
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
+                                        <div className="relative p-5 h-full flex flex-col justify-between text-white">
+                                            <div className="flex justify-between items-start">
+                                                <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
+                                                    <span className="font-black text-xs">
+                                                        {(() => {
+                                                            const card = cards.find((c: any) => c.id === selectedBillForDetail?.cardId);
+                                                            return card?.initials || BANKS.find((b: any) => b.id === card?.bank)?.sigla || selectedBillForDetail?.subcategory?.slice(0, 2).toUpperCase();
+                                                        })()}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
-                                            )}
+                                                <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <div>
+                                                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedBillForDetail?.subcategory}</p>
+                                                    <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedBillForDetail?.amount || 0)}</p>
+                                                </div>
+                                                {cards.find((c: any) => c.id === selectedBillForDetail?.cardId)?.brand === 'MASTER' ? (
+                                                    <div className="flex flex-col items-end">
+                                                        <div className="flex -space-x-1 opacity-90">
+                                                            <div className="size-4 rounded-full bg-[#eb001b]" />
+                                                            <div className="size-4 rounded-full bg-[#f79e1b]" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-6 pb-20 md:pb-8 custom-scrollbar">
                                 <div className="grid grid-cols-2 gap-4">

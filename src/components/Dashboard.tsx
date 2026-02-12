@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, differenceInDays, isPast, isToday, isSameMonth, addMonths } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, differenceInDays, isPast, isToday, isSameMonth, addMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
 import { useDragScroll } from '@/hooks/useDragScroll';
@@ -23,7 +23,8 @@ const Dashboard = () => {
         transactions, 
         predictedExpenses,
         cards,
-        updateCard
+        updateCard,
+        cardLimits
     } = useTransactions();
     const { formatValue } = useSettings();
     const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -230,7 +231,7 @@ const Dashboard = () => {
                 t.status !== 'deleted' && 
                 t.type === 'expense' &&
                 (t.subcategory === subcat || (t.category === cat && !t.subcategory)) &&
-                isWithinInterval(new Date(t.date), { start: threeMonthsAgo, end: endDate })
+                isWithinInterval(parseISO(t.date), { start: threeMonthsAgo, end: endDate })
             );
 
             if (relevantTransactions.length === 0) return 0;
@@ -240,14 +241,14 @@ const Dashboard = () => {
 
 
         const currentMonthTransactions = transactions.filter(t =>
-            t.status !== 'deleted' && isWithinInterval(new Date(t.date), { start, end })
+            t.status !== 'deleted' && isWithinInterval(parseISO(t.date), { start, end })
         );
 
         // Lógica para Média de Custos (Últimos 3 meses de variáveis + Fixas atuais)
         const last3MonthsStart = startOfMonth(subMonths(start, 3));
         const last3MonthsEnd = endOfMonth(subMonths(start, 1));
         const historicalTransactions = transactions.filter(t =>
-            t.status !== 'deleted' && t.type === 'expense' && isWithinInterval(new Date(t.date), { start: last3MonthsStart, end: last3MonthsEnd })
+            t.status !== 'deleted' && t.type === 'expense' && isWithinInterval(parseISO(t.date), { start: last3MonthsStart, end: last3MonthsEnd })
         );
         
         // Categorias que não são "Fixas/Moradia" (consideradas variáveis)
@@ -262,7 +263,7 @@ const Dashboard = () => {
         const prevHistoricalStart = startOfMonth(subMonths(prevMonthDate, 3));
         const prevHistoricalEnd = endOfMonth(subMonths(prevMonthDate, 1));
         const prevHistoricalTrans = transactions.filter(t => 
-            t.status !== 'deleted' && t.type === 'expense' && isWithinInterval(new Date(t.date), { start: prevHistoricalStart, end: prevHistoricalEnd })
+            t.status !== 'deleted' && t.type === 'expense' && isWithinInterval(parseISO(t.date), { start: prevHistoricalStart, end: prevHistoricalEnd })
         );
         const prevVariableAverage = prevHistoricalTrans.length > 0 ? (prevHistoricalTrans.reduce((acc, t) => acc + t.amount, 0) / 3) : 0;
         const prevPredictedTotal = fixedExpensesTotal + prevVariableAverage;
@@ -289,7 +290,7 @@ const Dashboard = () => {
         const currentMonthBalance = totalIncome - totalExpense;
         
         const prevMonthTransactions = transactions.filter(t =>
-            t.status !== 'deleted' && isWithinInterval(new Date(t.date), { start: startPrevMonth, end: endPrevMonth })
+            t.status !== 'deleted' && isWithinInterval(parseISO(t.date), { start: startPrevMonth, end: endPrevMonth })
         );
 
         const prevMonthIncome = prevMonthTransactions
@@ -334,7 +335,7 @@ const Dashboard = () => {
                 t.paymentMethod === 'cartao' && 
                 t.cardId === card.id && 
                 t.paymentOption === 'credit' &&
-                isWithinInterval(new Date(t.date), { start: last3MonthsStart, end: last3MonthsEnd })
+                isWithinInterval(parseISO(t.date), { start: last3MonthsStart, end: last3MonthsEnd })
             );
             const cardAverage = (cardHistoricalTransactions.reduce((acc, t) => acc + t.amount, 0) / 3) || 0;
 
@@ -342,7 +343,7 @@ const Dashboard = () => {
             const billTransactions = transactions.filter(t => 
                 t.status !== 'deleted' && 
                 t.cardId === card.id && 
-                isSameMonth(new Date(t.date), selectedMonth)
+                isSameMonth(parseISO(t.date), selectedMonth)
             );
 
             // Spends (Expense on Card) - Exclude Payment transactions themselves if any
@@ -393,15 +394,20 @@ const Dashboard = () => {
                 isVisible: isPaid || isAfterClosing || isOverdue || currentBillAmount > 0,
                 icon: 'credit_card'
             };
-        }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        }).sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+        const isFuelItem = (item: any) => 
+            item.category?.toLowerCase() === 'combustível' || 
+            (item.subcategory || '').toLowerCase().includes('combustível') ||
+            (item.description || '').toLowerCase().includes('combustível');
 
         // Fuel Grouping Logic
-        const fuelTransactions = currentMonthTransactions.filter(t => t.category.toLowerCase() === 'combustível');
+        const fuelTransactions = currentMonthTransactions.filter(t => isFuelItem(t));
         const fuelTotal = fuelTransactions.reduce((acc, t) => acc + t.amount, 0);
-        const fuelPrediction = recurringDefinitions.find((rd: any) => rd.category.toLowerCase() === 'combustível');
+        const fuelPrediction = recurringDefinitions.find((rd: any) => isFuelItem(rd));
         
         // Final monthlyPredictions with grouped fuel
-        const filteredExpenses = currentMonthTransactions.filter(t => t.type === 'expense' && t.category.toLowerCase() !== 'combustível' && !t.cardId)
+        const filteredExpenses = currentMonthTransactions.filter(t => t.type === 'expense' && !isFuelItem(t) && !t.cardId)
             .map(t => {
                 const [subLabel, subIcon] = (t.subcategory || '').split(':');
                 const cleanDescription = subLabel || t.subcategory || t.description;
@@ -429,17 +435,24 @@ const Dashboard = () => {
             ...(fuelTransactions.length > 0 || fuelPrediction ? [{
                 id: 'grouped-fuel',
                 category: 'Combustível',
-                description: 'Combustível',
+                description: 'Nível Combustível',
                 amount: fuelTotal,
-                predictedAmount: fuelPrediction?.amount || getSubcategoryAverage('Combustível', 'Combustível') || 0,
+                predictedAmount: fuelPrediction?.amount || 0,
                 date: (fuelTransactions[0]?.date || new Date().toISOString()),
-                isPrediction: fuelTransactions.length === 0,
+                isPrediction: false,
                 transactions: fuelTransactions,
-                circleStatus: fuelTransactions.length > 0 ? 'paid' : 'future'
+                circleStatus: (() => {
+                    const pred = fuelPrediction?.amount || 0;
+                    if (pred === 0) return 'future';
+                    const pct = (fuelTotal / pred) * 100;
+                    if (pct >= 80) return 'paid';   // Verde (≥80% da meta)
+                    if (pct >= 20) return 'future'; // Cinza (20%-80%)
+                    return 'overdue';              // Vermelho (< 20%)
+                })()
             }] : []),
             ...recurringDefinitions
                 .filter((rd: any) => {
-                    if (rd.category.toLowerCase() === 'combustível') return false; 
+                    if (isFuelItem(rd)) return false; 
                     return !currentMonthTransactions.some(t => 
                         t.type === 'expense' && 
                         (t.predictedExpenseId === rd.id ||
@@ -813,8 +826,8 @@ const Dashboard = () => {
                         <div className="hidden lg:flex flex-col h-[200px] min-w-0">
                             <div className="flex justify-between items-center mb-3 px-1">
                                 <span 
-                                    onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Contas a Pagar' }))}
-                                    className="text-[10px] font-black text-content/40 dark:text-white/40 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors"
+                                    onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Contas' }))}
+                                    className="text-[10px] font-black lg:text-white/60 text-content/40 dark:text-white/40 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors"
                                 >
                                     Contas Fixas a Vencer
                                 </span>
@@ -860,8 +873,8 @@ const Dashboard = () => {
                     <div className="hidden lg:flex flex-col min-w-0 mt-4 px-1">
                         <div className="flex justify-between items-center mb-4">
                             <span 
-                                onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Meus Cartões' }))}
-                                className="text-xs font-black text-content/60 dark:text-white/40 uppercase tracking-widest cursor-pointer hover:text-primary hover:opacity-100 transition-all"
+                                onClick={() => (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Cartões' }))}
+                                className="text-xs font-black lg:text-white/60 text-content/60 dark:text-white/40 uppercase tracking-widest cursor-pointer hover:text-primary hover:opacity-100 transition-all"
                             >
                                 Cartões
                             </span>
@@ -1111,13 +1124,13 @@ const Dashboard = () => {
 
 
                 {/* Círculos de Status - Previstos do Mês (Desktop) - Repositioned Here */}
-                <div className="hidden -mt-25 lg:flex flex-col h-full min-w-0 justify-end pb-1 pt-4 relative z-30 px-2">
+                <div className="hidden -mt-25 lg:flex flex-col h-full min-w-0 justify-end pb-1 pt-4 relative z-30 px-">
                     <div className="flex justify-between items-center mb-2 pl-2">
                         <span className="text-xs mt-2 font-black text-[#d7dce2] uppercase tracking-widest">Status Mensal</span>
                     </div>
                     <div 
                         ref={statusDragRefDesktop}
-                        className="flex overflow-x-auto gap-8 no-scrollbar px-2 cursor-grab active:cursor-grabbing scroll-smooth w-full items-center"
+                        className="flex overflow-x-auto pt-1 gap-8 no-scrollbar px-2 cursor-grab active:cursor-grabbing scroll-smooth w-full items-center"
                     >
                         {stats.monthlyPredictions
                             .filter((pred: any) => pred.isPrediction || pred.isCardBill || pred.isRecurring || pred.id === 'grouped-fuel')
@@ -1143,7 +1156,7 @@ const Dashboard = () => {
                                         }}
                                         className="absolute inset-[-4px] rounded-full border border-primary/30 pointer-events-none"
                                     >
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 size-2 bg-primary rounded-full blur-[2px] shadow-[0_0_12px_#47f425]"></div>
+                                        <div className="absolute top-0 left-1/2 -translate-x-1 size-3 bg-primary rounded-full blur-[2px] shadow-[0_0_12px_#47f425]"></div>
                                     </motion.div>
 
                                 <div 
@@ -1401,7 +1414,7 @@ const Dashboard = () => {
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <span className="px-3 py-1 bg-black/5 dark:bg-white/10 rounded-full text-[10px] font-black text-dim uppercase tracking-widest">
-                                        Vencimento: {format(new Date(selectedPrediction.date), 'dd/MM/yyyy')}
+                                        Vencimento: {format(parseISO(selectedPrediction.date), 'dd/MM/yyyy')}
                                     </span>
                                 </div>
                             </div>
@@ -1462,7 +1475,7 @@ const Dashboard = () => {
                 {selectedCardDetail && (
                     <>
                         {/* Desktop: Render Floating Card relative to Modal */}
-                        <div className="hidden md:flex absolute -top-[270px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
+                        <div className="hidden md:flex absolute -top-[210px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
                             <div className="pointer-events-auto w-[60%] max-w-lg animate-in slide-in-from-bottom-8 duration-500">
                                 <div 
                                     className="w-full aspect-[1.586/1] rounded-4xl shadow-2xl overflow-hidden border border-white/20 relative transform hover:scale-105 transition-transform duration-300"
@@ -1506,153 +1519,177 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        <div className="flex flex-col h-full max-h-[85vh] p-1 overflow-y-auto custom-scrollbar relative">
-                            {/* Modal Internal Header */}
-                            <div className="flex items-center justify-between p-4 md:p-6 mb-2">
-                        <div>
-                            <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedCardDetail?.subcategory}</h3>
-                            <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Fatura de {format(new Date(), 'MMMM', { locale: ptBR })}</p>
-                        </div>
-                        <button 
-                            onClick={() => setSelectedCardDetail(null)}
-                            className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-dim">close</span>
-                        </button>
-                    </div>
-
-                    {/* Mobile: In-Flow Card Visual */}
-                    <div className="md:hidden px-6 pb-6">
-                        <div 
-                            className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
-                            style={{ 
-                                backgroundColor: selectedCardDetail?.color,
-                                background: `linear-gradient(135deg, ${selectedCardDetail?.color} 0%, #000 150%)`
-                            }}
-                        >
-                            <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
-                            <div className="relative p-5 h-full flex flex-col justify-between text-white">
-                                <div className="flex justify-between items-start">
-                                    <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-                                        <span className="font-black text-xs">
-                                            {(() => {
-                                                const card = cards.find(c => c.id === selectedCardDetail?.cardId);
-                                                return card?.initials || BANKS.find(b => b.id === card?.bank)?.sigla || selectedCardDetail?.subcategory?.slice(0, 2).toUpperCase();
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
-                                </div>
-                                <div className="flex justify-between items-end">
+                        <div className="flex flex-col h-full max-h-[85vh] overflow-y-auto custom-scrollbar relative">
+                            <div className="p-8 md:p-10 space-y-6">
+                                {/* Modal Internal Header */}
+                                <div className="flex items-center justify-between mb-2">
                                     <div>
-                                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedCardDetail?.subcategory}</p>
-                                        <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedCardDetail?.amount || 0)}</p>
+                                        <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedCardDetail?.subcategory}</h3>
+                                        <p className="text-[10px] text-dim font-bold uppercase tracking-widest">Fatura de {format(new Date(), 'MMMM', { locale: ptBR })}</p>
                                     </div>
-                                    {cards.find(c => c.id === selectedCardDetail?.cardId)?.brand === 'MASTER' ? (
-                                        <div className="flex flex-col items-end">
-                                            <div className="flex -space-x-1 opacity-90">
-                                                <div className="size-4 rounded-full bg-[#eb001b]" />
-                                                <div className="size-4 rounded-full bg-[#f79e1b]" />
+                                    <button 
+                                        onClick={() => setSelectedCardDetail(null)}
+                                        className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-dim">close</span>
+                                    </button>
+                                </div>
+    
+                                {/* Mobile: In-Flow Card Visual */}
+                                <div className="md:hidden pb-6">
+                                    <div 
+                                        className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
+                                        style={{ 
+                                            backgroundColor: selectedCardDetail?.color,
+                                            background: `linear-gradient(135deg, ${selectedCardDetail?.color} 0%, #000 150%)`
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
+                                        <div className="relative p-5 h-full flex flex-col justify-between text-white">
+                                            <div className="flex justify-between items-start">
+                                                <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
+                                                    <span className="font-black text-xs">
+                                                        {(() => {
+                                                            const card = cards.find(c => c.id === selectedCardDetail?.cardId);
+                                                            return card?.initials || BANKS.find(b => b.id === card?.bank)?.sigla || selectedCardDetail?.subcategory?.slice(0, 2).toUpperCase();
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                                <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <div>
+                                                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedCardDetail?.subcategory}</p>
+                                                    <p className="text-xl font-black tracking-tighter">{formatCurrency(selectedCardDetail?.amount || 0)}</p>
+                                                </div>
+                                                {cards.find(c => c.id === selectedCardDetail?.cardId)?.brand === 'MASTER' ? (
+                                                    <div className="flex flex-col items-end">
+                                                        <div className="flex -space-x-1 opacity-90">
+                                                            <div className="size-4 rounded-full bg-[#eb001b]" />
+                                                            <div className="size-4 rounded-full bg-[#f79e1b]" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
+                                                )}
                                             </div>
                                         </div>
-                                    ) : (
-                                        <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-6 pb-20 md:pb-8 custom-scrollbar">
-                        
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 rotate-12">
-                                    <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
-                                </div>
-                                <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Total Atual</span>
-                                <span className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedCardDetail?.amount || 0)}</span>
-                            </div>
-                            <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150">
-                                    <span className="material-symbols-outlined text-6xl text-primary">analytics</span>
-                                </div>
-                                <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Média Mensal</span>
-                                <span className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedCardDetail?.averageAmount || 0)}</span>
-                            </div>
-                        </div>
-
-                        <div className="bg-primary/5 p-4 rounded-3xl border border-primary/20 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className={`size-10 rounded-2xl flex items-center justify-center ${selectedCardDetail?.circleStatus === 'paid' ? 'bg-primary text-secondary' : 'bg-orange-500/10 text-orange-500'}`}>
-                                    <span className="material-symbols-outlined">{selectedCardDetail?.circleStatus === 'paid' ? 'check_circle' : 'pending'}</span>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-bold text-dim uppercase tracking-widest leading-none">Status da Fatura</p>
-                                    <p className="text-sm font-black text-content uppercase tracking-tight mt-1 truncate">
-                                        {selectedCardDetail?.circleStatus === 'paid' ? 'Fatura Fechada' : 'Fatura Aberta'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => toggleBillStatus(selectedCardDetail)}
-                                className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedCardDetail?.circleStatus === 'paid' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-primary text-secondary shadow-glow'}`}
-                            >
-                                {selectedCardDetail?.circleStatus === 'paid' ? 'Abrir Fatura' : 'Fechar Fatura'}
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex gap-2 p-1 bg-background-light dark:bg-black/20 rounded-xl w-fit">
-                                <button 
-                                    onClick={() => setDetailTab('credit')}
-                                    className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${detailTab === 'credit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
-                                >
-                                    Crédito
-                                </button>
-                                <button 
-                                    onClick={() => setDetailTab('debit')}
-                                    className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${detailTab === 'debit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
-                                >
-                                    Débito
-                                </button>
-                            </div>
-
-                            <div className="space-y-3">
-                                <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Últimos Lançamentos</h4>
-                                {((detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions) || []).length === 0 ? (
-                                    <div className="text-center py-10 text-dim/40 text-xs font-bold uppercase italic border-2 border-dashed border-white/5 rounded-2xl">Nenhuma transação encontrada</div>
-                                ) : (
-                                    (detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions).map((t: any, idx: number) => (
-                                        <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-content">
-                                                    {t.description || (t.subcategory?.includes(':') ? t.subcategory.split(':')[0].trim() : t.subcategory) || t.category}
-                                                </span>
-                                                <span className="text-[9px] text-dim uppercase font-bold">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
+    
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                                            <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 rotate-12">
+                                                <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
                                             </div>
-                                            <span className="text-sm font-black text-content">{formatCurrency(t.amount)}</span>
+                                            <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Gasto Atual</span>
+                                            <span className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedCardDetail?.amount || 0)}</span>
                                         </div>
-                                    ))
-                                )}
+                                        <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
+                                            <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150">
+                                                <span className="material-symbols-outlined text-6xl text-primary">credit_score</span>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-dim uppercase tracking-widest block mb-1">Limite Disponível</span>
+                                            <span className="text-xl font-black text-primary tracking-tight">{formatCurrency(cardLimits[selectedCardDetail?.cardId]?.available || 0)}</span>
+                                        </div>
+                                    </div>
+    
+                                    {/* Barra de Limite */}
+                                    <div className="space-y-3 px-1">
+                                            <div className="flex justify-between items-end">
+                                            <span className="text-[10px] font-black text-dim uppercase tracking-widest">Uso do Limite</span>
+                                            <span className="text-xs font-black text-content">
+                                                {cardLimits[selectedCardDetail?.cardId] ? Math.round((cardLimits[selectedCardDetail?.cardId].used / cardLimits[selectedCardDetail?.cardId].total) * 100) : 0}%
+                                            </span>
+                                            </div>
+                                            <div className="h-4 bg-background-light dark:bg-black/20 rounded-full border border-white/5 p-1 overflow-hidden relative">
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${Math.min(100, (cardLimits[selectedCardDetail?.cardId]?.used / cardLimits[selectedCardDetail?.cardId]?.total) * 100 || 0)}%` }}
+                                                className={`h-full rounded-full transition-colors ${
+                                                    (cardLimits[selectedCardDetail?.cardId]?.used / cardLimits[selectedCardDetail?.cardId]?.total) > 0.9 ? 'bg-red-500' :
+                                                    (cardLimits[selectedCardDetail?.cardId]?.used / cardLimits[selectedCardDetail?.cardId]?.total) > 0.7 ? 'bg-orange-500' : 'bg-primary'
+                                                }`}
+                                            />
+                                            </div>
+                                            <div className="flex justify-between">
+                                            <span className="text-[9px] font-bold text-dim italic opacity-50 uppercase tracking-tighter">Usado: {formatCurrency(cardLimits[selectedCardDetail?.cardId]?.used || 0)}</span>
+                                            <span className="text-[9px] font-bold text-dim italic opacity-50 uppercase tracking-tighter">Total: {formatCurrency(cardLimits[selectedCardDetail?.cardId]?.total || 0)}</span>
+                                            </div>
+                                    </div>
+    
+                                    <div className="bg-primary/5 p-4 rounded-3xl border border-primary/20 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`size-10 rounded-2xl flex items-center justify-center ${selectedCardDetail?.circleStatus === 'paid' ? 'bg-primary text-secondary' : 'bg-orange-500/10 text-orange-500'}`}>
+                                                <span className="material-symbols-outlined">{selectedCardDetail?.circleStatus === 'paid' ? 'check_circle' : 'pending'}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-dim uppercase tracking-widest leading-none">Status da Fatura</p>
+                                                <p className="text-sm font-black text-content uppercase tracking-tight mt-1 truncate">
+                                                    {selectedCardDetail?.circleStatus === 'paid' ? 'Fatura Fechada' : 'Fatura Aberta'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => toggleBillStatus(selectedCardDetail)}
+                                            className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedCardDetail?.circleStatus === 'paid' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-primary text-secondary shadow-glow'}`}
+                                        >
+                                            {selectedCardDetail?.circleStatus === 'paid' ? 'Abrir Fatura' : 'Fechar Fatura'}
+                                        </button>
+                                    </div>
+    
+                                    <div className="space-y-4">
+                                        <div className="flex gap-2 p-1 bg-background-light dark:bg-black/20 rounded-xl w-fit">
+                                            <button 
+                                                onClick={() => setDetailTab('credit')}
+                                                className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${detailTab === 'credit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
+                                            >
+                                                Crédito
+                                            </button>
+                                            <button 
+                                                onClick={() => setDetailTab('debit')}
+                                                className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${detailTab === 'debit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
+                                            >
+                                                Débito
+                                            </button>
+                                        </div>
+    
+                                        <div className="space-y-3">
+                                            <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Últimos Lançamentos</h4>
+                                            {((detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions) || []).length === 0 ? (
+                                                <div className="text-center py-10 text-dim/40 text-xs font-bold uppercase italic border-2 border-dashed border-white/5 rounded-2xl">Nenhuma transação encontrada</div>
+                                            ) : (
+                                                (detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions).map((t: any, idx: number) => (
+                                                    <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <span className="text-sm font-bold text-content break-words">
+                                                                {t.description || (t.subcategory?.includes(':') ? t.subcategory.split(':')[0].trim() : t.subcategory) || t.category}
+                                                            </span>
+                                                            <span className="text-[9px] text-dim uppercase font-bold">{format(typeof t.date === 'string' && t.date.length >= 10 ? parseISO(t.date.slice(0, 10)) : new Date(t.date), 'dd/MM/yyyy')}</span>
+                                                        </div>
+                                                        <span className="text-sm font-black text-content ml-4 whitespace-nowrap">{formatCurrency(t.amount)}</span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+    
+                                    <div className="pt-4 border-t border-white/5">
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedCardDetail(null);
+                                                (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Cartões' }));
+                                            }}
+                                            className="w-full py-4 bg-primary text-secondary rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-glow active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">payments</span>
+                                            Ver Fatura Completa
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="pt-4 border-t border-white/5">
-                            <button 
-                                onClick={() => {
-                                    setSelectedCardDetail(null);
-                                    (window as any).dispatchEvent(new CustomEvent('change-tab', { detail: 'Meus Cartões' }));
-                                }}
-                                className="w-full py-4 bg-primary text-secondary rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-glow active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-sm">payments</span>
-                                Ver Fatura Completa
-                            </button>
-                        </div>
-                    </div>
-                </div>
                 
 
                     </>
@@ -1660,14 +1697,14 @@ const Dashboard = () => {
             </Modal>
 
             <Modal isOpen={!!selectedFuelDetail} onClose={() => setSelectedFuelDetail(null)}>
-                <div className="space-y-6">
+                <div className="p-8 md:p-10 space-y-6">
                     <div className="flex items-center gap-4 border-b border-white/5 pb-4">
                         <div className="size-14 rounded-2xl flex items-center justify-center bg-primary/20 text-primary shadow-lg border border-primary/20">
                             <span className="material-symbols-outlined text-3xl">local_gas_station</span>
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-content uppercase tracking-tight">Abastecimentos</h2>
-                            <p className="text-xs text-dim font-bold uppercase tracking-widest">{selectedFuelDetail?.date ? format(new Date(selectedFuelDetail.date), 'MMMM', { locale: ptBR }) : ''}</p>
+                            <p className="text-xs text-dim font-bold uppercase tracking-widest">{selectedFuelDetail?.date ? format(typeof selectedFuelDetail.date === 'string' && selectedFuelDetail.date.length === 10 ? parseISO(selectedFuelDetail.date) : new Date(selectedFuelDetail.date), 'MMMM', { locale: ptBR }) : ''}</p>
                         </div>
                     </div>
 
@@ -1682,49 +1719,124 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="max-h-[350px] overflow-y-auto no-scrollbar space-y-3">
-                        {(selectedFuelDetail?.transactions || []).map((t: any) => (
-                            <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-content truncate max-w-[150px]">{t.description || 'Abastecimento'}</span>
-                                    <span className="text-[10px] text-dim uppercase font-bold">{format(new Date(t.date), 'dd/MM/yyyy')}</span>
-                                </div>
-                                <span className="text-base font-black text-content">{formatCurrency(t.amount)}</span>
+                    {/* Barra de progresso */}
+                    {selectedFuelDetail?.predictedAmount > 0 && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                <span className="text-dim">Progresso</span>
+                                <span className="text-primary">{Math.min(100, Math.round((selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100))}%</span>
                             </div>
-                        ))}
+                            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${
+                                        (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 80 ? 'bg-primary shadow-[0_0_10px_#47f425]' : 
+                                        (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 20 ? 'bg-zinc-500' : 
+                                        'bg-red-500 shadow-[0_0_10px_#ef4444]'
+                                    }`}
+                                    style={{ width: `${Math.min(100, (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] mb-3">Abastecimentos do Mês</h4>
+                        <div className="max-h-[250px] overflow-y-auto no-scrollbar space-y-3">
+                            {(selectedFuelDetail?.transactions || []).length === 0 ? (
+                                <div className="text-center py-8 text-dim/40 text-xs font-bold uppercase italic border-2 border-dashed border-white/5 rounded-2xl">Nenhum abastecimento registrado</div>
+                            ) : (
+                                (selectedFuelDetail?.transactions || []).map((t: any) => (
+                                    <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-primary text-lg">local_gas_station</span>
+                                            </div>
+                                            <div className="flex flex-col flex-1 min-w-0">
+                                                <span className="text-sm font-bold text-content break-words">{t.description || t.notes || 'Abastecimento'}</span>
+                                                <span className="text-[10px] text-dim uppercase font-bold">{format(typeof t.date === 'string' && t.date.length >= 10 ? parseISO(t.date.slice(0, 10)) : new Date(t.date), 'dd/MM/yyyy')}</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-base font-black text-content">{formatCurrency(t.amount)}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                        <button
+                            onClick={() => {
+                                setSelectedFuelDetail(null);
+                                window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                    detail: {
+                                        category: 'Combustível',
+                                        subcategory: 'Combustível',
+                                    }
+                                }));
+                            }}
+                            className="w-full py-4 bg-primary text-secondary rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-glow active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                            <span className="material-symbols-outlined text-sm">local_gas_station</span>
+                            Adicionar Abastecimento
+                        </button>
+                        <button 
+                            onClick={() => setSelectedFuelDetail(null)}
+                            className="w-full py-4 bg-white/5 text-dim rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:text-content transition-all"
+                        >
+                            Fechar
+                        </button>
                     </div>
                 </div>
             </Modal>
             <BottomSheetSelect 
                 isOpen={billActionMenu.isOpen}
                 onClose={() => setBillActionMenu({ isOpen: false, bill: null })}
-                title="Ações da Conta"
-                options={[
-                    { id: 'view', label: 'Ver Detalhes', icon: 'visibility' },
-                    { id: 'pay', label: 'Pagar Conta', icon: 'payments' },
-                    { id: 'delete', label: 'Excluir este mês', icon: 'delete' }
-                ]}
+                title={billActionMenu.bill && (billActionMenu.bill.id === 'grouped-fuel' || 
+                      billActionMenu.bill.category?.toLowerCase() === 'combustível' || 
+                      (billActionMenu.bill.subcategory || '').toLowerCase().includes('combustível')) ? '⛽ Combustível' : 'Ações da Conta'}
+                options={(() => {
+                    const isFuel = billActionMenu.bill && (billActionMenu.bill.id === 'grouped-fuel' || 
+                                 billActionMenu.bill.category?.toLowerCase() === 'combustível' || 
+                                 (billActionMenu.bill.subcategory || '').toLowerCase().includes('combustível'));
+                    return [
+                        { id: 'view', label: 'Ver Detalhes', icon: 'visibility' },
+                        { id: 'pay', label: isFuel ? 'Adicionar Abastecimento' : 'Pagar Conta', icon: isFuel ? 'local_gas_station' : 'payments' },
+                        { id: 'delete', label: 'Excluir este mês', icon: 'delete' }
+                    ];
+                })()}
                 onSelect={(opt) => {
                     const bill = billActionMenu.bill;
+                    if (!bill) return;
+                    
+                    const isFuel = bill.id === 'grouped-fuel' || 
+                                 bill.category?.toLowerCase() === 'combustível' || 
+                                 (bill.subcategory || '').toLowerCase().includes('combustível') ||
+                                 (bill.description || '').toLowerCase().includes('combustível');
+
                     if (opt.id === 'pay') {
-                        // Extrair ID limpo para prever vínculo
-                        const rawId = bill.id.replace('pred-', '').replace('circle-', '').replace('proj-', '');
-                        // Se for uma conta já salva (não previsão pura), o predictedExpenseId pode estar no objeto original se tivéssemos acesso, 
-                        // mas aqui usamos o ID da previsão se disponível.
-                        
-                        window.dispatchEvent(new CustomEvent('open-add-transaction', {
-                            detail: {
-                                amount: bill.amount,
-                                category: bill.isCardBill ? 'Pagamento' : bill.category,
-                                subcategory: bill.isCardBill ? 'Fatura' : bill.subcategory,
-                                notes: bill.description || '',
-                                date: bill.date,
-                                cardId: bill.cardId,
-                                predictedExpenseId: bill.isPrediction ? rawId : (bill.predictedExpenseId || null)
-                            }
-                        }));
+                        if (isFuel) {
+                            window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                detail: {
+                                    category: 'Combustível',
+                                    subcategory: 'Combustível',
+                                }
+                            }));
+                        } else {
+                            const rawId = bill.id.replace('pred-', '').replace('circle-', '').replace('proj-', '');
+                            window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                detail: {
+                                    amount: bill.amount,
+                                    category: bill.isCardBill ? 'Pagamento' : bill.category,
+                                    subcategory: bill.isCardBill ? 'Fatura' : bill.subcategory,
+                                    notes: bill.description || '',
+                                    date: bill.date,
+                                    cardId: bill.cardId,
+                                    predictedExpenseId: bill.isPrediction ? rawId : (bill.predictedExpenseId || null)
+                                }
+                            }));
+                        }
                     } else if (opt.id === 'view') {
-                        if (bill.id === 'grouped-fuel') setSelectedFuelDetail(bill);
+                        if (isFuel) setSelectedFuelDetail(bill);
                         else if (bill.isCardBill) setSelectedCardDetail(bill);
                         else setSelectedPrediction(bill);
                     } else if (opt.id === 'delete') {

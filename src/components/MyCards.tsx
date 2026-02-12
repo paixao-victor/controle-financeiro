@@ -234,7 +234,7 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
                 {selectedCard && (
                     <>
                         {/* Floating Card - Desktop Only - Positioned relative to Modal Top */}
-                        <div className="hidden md:flex absolute -top-[270px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
+                        <div className="hidden md:flex absolute -top-[210px] left-0 right-0 z-50 items-center justify-center pointer-events-none">
                              <div className="pointer-events-auto w-[60%] max-w-lg animate-in slide-in-from-bottom-8 duration-500">
                                  <div 
                                         className="w-full aspect-[1.586/1] rounded-4xl shadow-2xl overflow-hidden border border-white/20 relative transform hover:scale-105 transition-transform duration-300"
@@ -275,159 +275,91 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
                              </div>
                         </div>
 
-                        <div className="flex flex-col h-full max-h-[85vh] p-1 overflow-y-auto custom-scrollbar relative">
-
-
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-4 md:p-6 mb-2">
-                            <div>
-                                <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedCard.alias}</h3>
-                                <p className="text-[10px] text-dim font-bold uppercase tracking-widest">
-                                    {BANKS.find(b => b.id === selectedCard.bank)?.label || selectedCard.bank}
-                                </p>
-                            </div>
-                            <button onClick={() => setSelectedCard(null)} className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors">
-                                <span className="material-symbols-outlined text-dim">close</span>
-                            </button>
-                        </div>
-
-                        {/* Mobile: In-Flow Card Visual */}
-                        <div className="md:hidden px-6 pb-6">
-                            <div 
-                                className="w-full aspect-[1.586/1] rounded-3xl shadow-lg run-ring border border-white/20 relative overflow-hidden transform transition-transform"
-                                style={{ 
-                                    backgroundColor: selectedCard.color,
-                                    background: `linear-gradient(135deg, ${selectedCard.color} 0%, #000 150%)`
-                                }}
-                            >
-                                <div className="absolute inset-0 bg-white/5 opacity-50 backdrop-blur-[1px]"></div>
-                                <div className="relative p-5 h-full flex flex-col justify-between text-white">
-                                    <div className="flex justify-between items-start">
-                                        <div className="size-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-                                            <span className="font-black text-xs">
-                                                {selectedCard.initials || BANKS.find(b => b.id === selectedCard.bank)?.sigla || selectedCard.bank.slice(0, 2).toUpperCase()}
-                                            </span>
-                                        </div>
-                                        <span className="material-symbols-outlined opacity-60 text-2xl">contactless</span>
-                                    </div>
-                                    <div className="flex justify-between items-end">
-                                        <div>
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.3em] opacity-60 mb-1">{selectedCard.alias}</p>
-                                            <p className="text-xl font-black tracking-tighter">{formatCurrency(getBillInfo(selectedCard).currentAmount)}</p>
-                                        </div>
-                                        {selectedCard.brand === 'MASTER' ? (
-                                            <div className="flex flex-col items-end">
-                                                <div className="flex -space-x-1 opacity-90">
-                                                    <div className="size-4 rounded-full bg-[#eb001b]" />
-                                                    <div className="size-4 rounded-full bg-[#f79e1b]" />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="italic font-black text-lg opacity-90 tracking-tighter">VISA</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-20 md:pb-8 space-y-6">
-                            
-                            {/* Card Stats Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                    <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 rotate-12 transition-transform group-hover:rotate-0">
-                                        <span className="material-symbols-outlined text-6xl">account_balance_wallet</span>
-                                    </div>
-                                    <p className="text-[10px] font-bold text-dim uppercase tracking-widest mb-1">Limite Disponível</p>
-                                    <p className="text-xl font-black text-content tracking-tight">{formatCurrency(selectedCard.limit)}</p>
-                                    <div className="h-1.5 w-full bg-gray-200 dark:bg-white/10 rounded-full mt-3 overflow-hidden shadow-inner">
-                                        <div className="h-full bg-primary shadow-glow" style={{ width: '65%' }}></div>
-                                    </div>
-                                </div>
-                                <div className="bg-background-light dark:bg-black/20 p-5 rounded-3xl border border-white/5 relative overflow-hidden group">
-                                     <div className="absolute right-[-10px] bottom-[-10px] opacity-10 scale-150 transition-transform group-hover:scale-175 duration-700">
-                                        <span className="material-symbols-outlined text-6xl text-primary">event_available</span>
-                                    </div>
-                                    <p className="text-[10px] font-bold text-content uppercase tracking-widest mb-1">Melhor dia de compra</p>
-                                    <p className="text-xl font-black text-content tracking-tight">Dia {(selectedCard.closingDay % 31) + 1}</p>
-                                    <p className="text-[9px] text-dim font-bold uppercase mt-2">Fechamento: Dia {selectedCard.closingDay}</p>
-                                </div>
-                            </div>
-
-                            {/* Status Control */}
-                            <div className="bg-primary/5 p-4 rounded-3xl border border-primary/20 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className={`size-10 rounded-2xl flex items-center justify-center ${getBillInfo(selectedCard).isPaid ? 'bg-primary text-secondary' : 'bg-orange-500/10 text-orange-500'}`}>
-                                        <span className="material-symbols-outlined">{getBillInfo(selectedCard).isPaid ? 'check_circle' : 'pending'}</span>
-                                    </div>
+                        <div className="flex flex-col h-full max-h-[85vh] overflow-y-auto custom-scrollbar relative">
+                            <div className="p-8 md:p-10 space-y-6">
+                                {/* Modal Header */}
+                                <div className="flex items-center justify-between mb-2">
                                     <div>
-                                        <p className="text-[10px] font-bold text-dim uppercase tracking-widest leading-none">Status da Fatura</p>
-                                        <p className="text-sm font-black text-content uppercase tracking-tight mt-1">
-                                            {getBillInfo(selectedCard).isPaid ? 'Fatura Fechada' : 'Fatura Aberta'}
+                                        <h3 className="font-bold text-content text-lg uppercase tracking-tight">{selectedCard.alias}</h3>
+                                        <p className="text-[10px] text-dim font-bold uppercase tracking-widest">
+                                            {BANKS.find(b => b.id === selectedCard.bank)?.label || selectedCard.bank}
                                         </p>
-                                        {getBillInfo(selectedCard).isPaid && selectedCard.billStatusOverrides?.[`${getBillInfo(selectedCard).monthKey}-date`] && (
-                                            <p className="text-[9px] text-primary font-bold uppercase mt-1">
-                                                Fechada em {selectedCard.billStatusOverrides[`${getBillInfo(selectedCard).monthKey}-date`]}
-                                            </p>
-                                        )}
                                     </div>
-                                </div>
-                                <button 
-                                    onClick={() => toggleBillStatus(selectedCard)}
-                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${getBillInfo(selectedCard).isPaid ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-primary text-secondary shadow-glow'}`}
-                                >
-                                    {getBillInfo(selectedCard).isPaid ? 'Abrir Fatura' : 'Fechar Fatura'}
-                                </button>
-                            </div>
-
-                            {/* Tabs & Transactions List */}
-                            <div className="space-y-4">
-                                <div className="flex gap-2 p-1.5 bg-background-light dark:bg-black/20 rounded-2xl w-fit">
                                     <button 
-                                        onClick={() => setDetailTab('credit')}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${detailTab === 'credit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
+                                        onClick={() => setSelectedCard(null)}
+                                        className="size-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
                                     >
-                                        Crédito
-                                    </button>
-                                    <button 
-                                        onClick={() => setDetailTab('debit')}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${detailTab === 'debit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
-                                    >
-                                        Débito
+                                        <span className="material-symbols-outlined text-dim">close</span>
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Últimos Lançamentos</h4>
-                                    {transactions
-                                        .filter(t => t.cardId === selectedCard.id && t.status !== 'deleted')
-                                        .slice(0, 10)
-                                        .map((t, idx) => (
-                                            <div key={t.id + idx} className="flex items-center justify-between p-4 bg-background-light dark:bg-black/10 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="size-10 rounded-xl bg-white dark:bg-surface shadow-sm flex items-center justify-center text-dim group-hover:text-primary transition-colors">
-                                                        <span className="material-symbols-outlined text-xl">shopping_bag</span>
+                                <div className="bg-primary/5 p-4 rounded-3xl border border-primary/20 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`size-10 rounded-2xl flex items-center justify-center ${getBillInfo(selectedCard).isPaid ? 'bg-primary text-secondary' : 'bg-orange-500/10 text-orange-500'}`}>
+                                            <span className="material-symbols-outlined">{getBillInfo(selectedCard).isPaid ? 'check_circle' : 'pending'}</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-bold text-dim uppercase tracking-widest leading-none">Status da Fatura</p>
+                                            <p className="text-sm font-black text-content uppercase tracking-tight mt-1 truncate">
+                                                {getBillInfo(selectedCard).isPaid ? 'Fatura Fechada' : 'Fatura Aberta'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => toggleBillStatus(selectedCard)}
+                                        className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${getBillInfo(selectedCard).isPaid ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-primary text-secondary shadow-glow'}`}
+                                    >
+                                        {getBillInfo(selectedCard).isPaid ? 'Abrir Fatura' : 'Fechar Fatura'}
+                                    </button>
+                                </div>
+    
+                                {/* Tabs & Transactions List */}
+                                <div className="space-y-4">
+                                    <div className="flex gap-2 p-1.5 bg-background-light dark:bg-black/20 rounded-2xl w-fit">
+                                        <button 
+                                            onClick={() => setDetailTab('credit')}
+                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${detailTab === 'credit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
+                                        >
+                                            Crédito
+                                        </button>
+                                        <button 
+                                            onClick={() => setDetailTab('debit')}
+                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${detailTab === 'debit' ? 'bg-white dark:bg-surface shadow-sm text-content' : 'text-dim hover:text-content'}`}
+                                        >
+                                            Débito
+                                        </button>
+                                    </div>
+    
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black text-dim uppercase tracking-[0.2em] px-1">Últimos Lançamentos</h4>
+                                        {transactions
+                                            .filter(t => t.cardId === selectedCard.id && t.status !== 'deleted')
+                                            .slice(0, 10)
+                                            .map((t, idx) => (
+                                                <div key={t.id + idx} className="flex items-center justify-between p-4 bg-background-light dark:bg-black/10 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer">
+                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                        <div className="size-10 rounded-xl bg-white dark:bg-surface shadow-sm flex items-center justify-center text-dim group-hover:text-primary transition-colors">
+                                                            <span className="material-symbols-outlined text-xl">shopping_bag</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold text-content leading-tight break-words">{t.description || t.subcategory || t.category}</p>
+                                                            <p className="text-[9px] text-dim font-bold mt-1 uppercase tracking-wider">{format(parseISO(t.date.slice(0, 10)), "dd 'de' MMM", { locale: ptBR })}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-content leading-none">{t.description || t.subcategory || t.category}</p>
-                                                        <p className="text-[9px] text-dim font-bold mt-1 uppercase tracking-wider">{format(parseISO(t.date), "dd 'de' MMM", { locale: ptBR })}</p>
+                                                    <div className="text-right ml-4">
+                                                        <p className="text-sm font-black text-content">{formatCurrency(t.amount)}</p>
+                                                        <p className="text-[9px] text-dim font-bold uppercase tracking-wider">Aprovada</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-black text-content">{formatCurrency(t.amount)}</p>
-                                                    <p className="text-[9px] text-dim font-bold uppercase tracking-wider">Aprovada</p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    }
+                                            ))
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
                     </>
                 )}
             </Modal>
-            
         </div>
     );
 };

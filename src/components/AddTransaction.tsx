@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency, parseDate } from '@/utils/formatters';
 import type { Transaction, TransactionType } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,10 +37,16 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [targetAccount, setTargetAccount] = useState('');
     const [selectedCardId, setSelectedCardId] = useState('');
     const [cardPaymentOption, setCardPaymentOption] = useState<'debit' | 'credit'>('credit');
-    // Ensure notes are empty by default for new transactions, as requested
     const [notes, setNotes] = useState(initialData?.notes || '');
     const [predictedExpenseId, setPredictedExpenseId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Fuel related states
+    const [stationName, setStationName] = useState('');
+    const [odometer, setOdometer] = useState('');
+    const [liters, setLiters] = useState('');
+    const [fuelType, setFuelType] = useState<'A' | 'G' | 'D'>('G');
+    const [pricePerLiter, setPricePerLiter] = useState('');
 
 
     const { addTransaction, availableCategories, cards, accounts, predictedExpenses } = useTransactions();
@@ -92,11 +98,6 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 };
             });
 
-             // Only update if months changed or date changed (to keep date sync) - preserving amounts if only date changes?
-             // Simplification: Reset on months change. Keep amounts on date change?
-             // User wants to edit amounts. If total changes, we redistribute?
-             // Let's rely on manual sync for Total -> Installments.
-
              if (prevMonthsRef.current !== recurrenceMonths) {
                  setCustomInstallments(newInstallments);
                  prevMonthsRef.current = recurrenceMonths;
@@ -126,7 +127,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 if (data.amount !== undefined) setAmount(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(data.amount));
                 if (data.category !== undefined) setCategory(data.category);
                 if (data.subcategory !== undefined) setSubcategory(data.subcategory);
-                if (data.date !== undefined) setDate(data.date);
+                if (data.date !== undefined) {
+                    const d = parseDate(data.date);
+                    setDate(format(d, 'yyyy-MM-dd'));
+                }
                 if (data.notes !== undefined) setNotes(data.notes);
                 if (data.predictedExpenseId !== undefined) setPredictedExpenseId(data.predictedExpenseId);
 
@@ -148,7 +152,61 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         return () => window.removeEventListener('open-add-transaction', handleOpen);
     }, [accounts]);
 
-    // When Total Amount changes manually, redistribute (unless it matches sum of custom)
+    // Auto-calculate price per liter
+    React.useEffect(() => {
+        const total = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
+        const l = parseFloat(liters.replace(/\./g, '').replace(',', '.')) || 0;
+        if (total > 0 && l > 0) {
+            setPricePerLiter((total / l).toFixed(2).replace('.', ','));
+        }
+    }, [amount, liters]);
+
+    // Fuel related logic
+    const isFuelSubcategory = useMemo(() => 
+        subcategory.toLowerCase().includes('combustível') || subcategory.toLowerCase().includes('combustivel')
+    , [subcategory]);
+
+    const handleLitersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value === '') {
+            setLiters('');
+            return;
+        }
+        const floatValue = parseInt(value) / 100;
+        setLiters(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(floatValue));
+    };
+
+    const handleOdometerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value === '') {
+            setOdometer('');
+            return;
+        }
+        setOdometer(new Intl.NumberFormat('pt-BR').format(parseInt(value)));
+    };
+
+    // Keep track if user edited notes manually
+    const [isNotesManual, setIsNotesManual] = useState(false);
+    const lastSystemNoteRef = useRef('');
+    
+    React.useEffect(() => {
+        if (!isFuelSubcategory) return;
+        
+        const pattern = /⛽ Posto (.*?) \| (.*?) L \| (.*?) Km \| R\$ (.*?) \/L/;
+        const match = notes.match(pattern);
+        
+        // If it matches our system pattern OR notes are empty, we can update dynamically
+        if (match || !notes || !isNotesManual) {
+            const fuelInfo = `⛽ Posto ${stationName || 'Posto'} | ${liters || '0,00'} L | ${odometer || '0'} Km | R$ ${pricePerLiter || '0,00'} /L`;
+            
+            // Only update if something actually changed to avoid cursor jumps
+            if (notes !== fuelInfo) {
+                setNotes(fuelInfo);
+                lastSystemNoteRef.current = fuelInfo;
+            }
+        }
+    }, [stationName, odometer, liters, pricePerLiter, isFuelSubcategory, isNotesManual, notes]);
+
     const handleAmountBlur = () => {
          const total = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
          const months = parseInt(recurrenceMonths);
@@ -297,12 +355,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         category: string,
         subcategory: string
     ) => {
-        // Recurrence Mode Logic for Credit Card Installments (Reuse existing logic but clarify UI)
         if (paymentMethod === 'cartao' && cardPaymentOption === 'credit' && recurrenceMode === 'Parcelado' && parseInt(recurrenceMonths) > 1) {
             const numMonths = parseInt(recurrenceMonths);
             const parentId = uuidv4();
 
-            // Use custom installments if valid, otherwise calculate
             const installmentsToSave = customInstallments.length === numMonths ? customInstallments : Array.from({ length: numMonths }, (_, i) => {
                  const installmentAmount = floatAmount / numMonths;
                  const installmentDate = new Date(date);
@@ -334,7 +390,14 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 id: uuidv4(),
                 amount: floatAmount,
                 date,
-                description: notes || `${category}${subcategory ? ' - ' + subcategory : ''}${targetAccount ? ' (' + targetAccount + ')' : ''}`,
+                description: (notes || `${category}${subcategory ? ' - ' + subcategory : ''}${targetAccount ? ' (' + targetAccount + ')' : ''}`),
+                fuelDetails: (isFuelSubcategory && type === 'expense') ? {
+                    stationName: stationName || undefined,
+                    odometer: odometer ? parseInt(odometer.replace(/\./g, '')) : undefined,
+                    liters: liters ? parseFloat(liters.replace(',', '.')) : undefined,
+                    fuelType,
+                    pricePerLiter: pricePerLiter ? parseFloat(pricePerLiter.replace(',', '.')) : undefined
+                } : undefined,
             } as Transaction;
 
             addTransaction(newTransaction);
@@ -548,8 +611,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                     );
                                 }
                                 return null;
-                            })()}
-
+                            })() }
                         </div>
                     </div>
 
@@ -627,6 +689,80 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                         </div>
                     </div>
 
+                    {/* Fuel Details Section */}
+                    {isFuelSubcategory && type === 'expense' && (
+                        <div className="space-y-4 opacity-0 animate-fade-up delay-250 md:col-span-2 lg:col-span-2">
+                             <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Detalhes do Abastecimento</div>
+                             <div className="nm-card rounded-2xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Posto de Gasolina</label>
+                                    <div className="relative group">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-dim group-focus-within:text-primary transition-colors">local_gas_station</span>
+                                        <input 
+                                            type="text" 
+                                            className="w-full h-12 pl-12 pr-4 nm-input border-none rounded-xl text-content font-bold text-sm focus:ring-2 focus:ring-primary/20" 
+                                            placeholder="Nome do Posto" 
+                                            value={stationName} 
+                                            onChange={(e) => setStationName(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="relative group">
+                                        <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">KM Total</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                inputMode="numeric"
+                                                className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center pr-10" 
+                                                placeholder="0.000" 
+                                                value={odometer} 
+                                                onChange={handleOdometerChange}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-dim pointer-events-none">Km</span>
+                                        </div>
+                                    </div>
+                                    <div className="relative group">
+                                        <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Litros</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                inputMode="numeric"
+                                                className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center pr-8" 
+                                                placeholder="00,00" 
+                                                value={liters} 
+                                                onChange={handleLitersChange}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-dim pointer-events-none">l</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Tipo de Combustível</label>
+                                    <div className="flex p-1 nm-input rounded-xl gap-1">
+                                        {(['G', 'A', 'D'] as const).map((t) => (
+                                            <button 
+                                                key={t}
+                                                type="button"
+                                                onClick={() => setFuelType(t)}
+                                                className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${fuelType === t ? 'bg-primary text-secondary shadow-md' : 'text-dim hover:bg-white/5'}`}
+                                            >
+                                                {t === 'G' ? 'Gasolina' : t === 'A' ? 'Álcool' : 'Diesel'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Preço por Litro</label>
+                                    <div className="w-full h-12 px-4 nm-input border-none rounded-xl bg-content/5 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-dim uppercase">Automático</span>
+                                        <span className="text-sm font-black text-primary">R$ {pricePerLiter || '0,00'}</span>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+                    )}
+
                     <div className="space-y-4 opacity-0 animate-fade-up delay-300 md:col-span-2 lg:col-span-1">
                         <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Método e Detalhes</div>
                         <div className="flex flex-col gap-4">
@@ -666,7 +802,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                         <span className={targetAccount ? 'text-content' : 'text-dim'}>
                                             {targetAccount || (type === 'income' ? 'Onde entra?' : 'De onde sai?')}
                                         </span>
-                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors`}>account_balance_wallet</span>
+                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors inline-block! visible`}>account_balance_wallet</span>
                                     </button>
                                     <BottomSheetSelect 
                                         isOpen={isAccountSheetOpen}
@@ -678,239 +814,221 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                     />
                                 </div>
                             )}
-                            <div className="nm-card rounded-2xl p-4 space-y-4">
-                                {paymentMethod === 'cartao' && (
-                                    <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Selecionar Cartão</label>
-                                            <button onClick={() => setIsCardSheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
-                                                <span className={selectedCardId ? 'text-content' : 'text-dim'}>
-                                                    {selectedCardId 
-                                                        ? (() => {
-                                                            const c = cards.find(item => String(item.id) === String(selectedCardId));
-                                                            return c ? (c.alias || 'Cartão Selecionado') : 'Cartão não encontrado';
-                                                        })()
-                                                        : 'Qual cartão?'}
-                                                </span>
-                                                <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
-                                            </button>
-                                            <BottomSheetSelect 
-                                                isOpen={isCardSheetOpen}
-                                                onClose={() => setIsCardSheetOpen(false)}
-                                                title="Meus Cartões"
-                                                selectedValue={selectedCardId}
-                                                options={cards.map(c => ({ id: c.id, label: c.alias, icon: 'credit_card' }))}
-                                                onSelect={(opt) => {
-                                                    setSelectedCardId(String(opt.id));
-                                                    const card = cards.find(c => c.id === String(opt.id));
-                                                    if (card) {
-                                                        if (card.type === 'credit') setCardPaymentOption('credit');
-                                                        else if (card.type === 'debit') setCardPaymentOption('debit');
-                                                    }
-                                                }}
-                                            />
-                                        </div>
 
-                                        {(() => {
-                                            const card = cards.find(c => c.id === selectedCardId);
-                                            if (card?.type === 'both') {
-                                                return (
-                                                    <div className="flex p-1.5 nm-input rounded-2xl animate-pulse ring-2 ring-primary/50">
+                            {paymentMethod === 'cartao' && (
+                                <div className="nm-card rounded-2xl p-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Selecionar Cartão</label>
+                                        <button onClick={() => setIsCardSheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
+                                            <span className={selectedCardId ? 'text-content' : 'text-dim'}>
+                                                {selectedCardId 
+                                                    ? (() => {
+                                                        const c = cards.find(item => String(item.id) === String(selectedCardId));
+                                                        return c ? (c.alias || 'Cartão Selecionado') : 'Cartão não encontrado';
+                                                    })()
+                                                    : 'Qual cartão?'}
+                                            </span>
+                                            <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
+                                        </button>
+                                        <BottomSheetSelect 
+                                            isOpen={isCardSheetOpen}
+                                            onClose={() => setIsCardSheetOpen(false)}
+                                            title="Meus Cartões"
+                                            selectedValue={selectedCardId}
+                                            options={cards.map(c => ({ id: c.id, label: c.alias, icon: 'credit_card' }))}
+                                            onSelect={(opt) => {
+                                                setSelectedCardId(String(opt.id));
+                                                const card = cards.find(c => c.id === String(opt.id));
+                                                if (card) {
+                                                    if (card.type === 'credit') setCardPaymentOption('credit');
+                                                    else if (card.type === 'debit') setCardPaymentOption('debit');
+                                                }
+                                            }}
+                                        />
+                                    </div>
+
+                                    {(() => {
+                                        const card = cards.find(c => c.id === selectedCardId);
+                                        if (card?.type === 'both') {
+                                            return (
+                                                <div className="flex p-1.5 nm-input rounded-2xl animate-pulse ring-2 ring-primary/50">
+                                                    <button 
+                                                        onClick={(e) => { e.preventDefault(); setCardPaymentOption('credit'); }}
+                                                        className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${cardPaymentOption === 'credit' ? 'bg-primary text-secondary shadow-md' : 'text-dim hover:bg-white/5'}`}
+                                                    >
+                                                        Crédito
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { e.preventDefault(); setCardPaymentOption('debit'); }}
+                                                        className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${cardPaymentOption === 'debit' ? 'bg-primary text-secondary shadow-md' : 'text-dim hover:bg-white/5'}`}
+                                                    >
+                                                        Débito
+                                                    </button>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+
+                                    <div className="space-y-4 pt-4 border-t border-content/5 mt-4">
+                                        {cardPaymentOption === 'credit' ? (
+                                            <div className="animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-[10px] font-bold text-dim uppercase tracking-wider">Parcelamento</label>
+                                                    <div className="flex bg-background-light dark:bg-black/20 p-1 rounded-lg">
                                                         <button 
-                                                            onClick={(e) => { e.preventDefault(); setCardPaymentOption('credit'); }}
-                                                            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${cardPaymentOption === 'credit' ? 'bg-primary text-secondary shadow-md' : 'text-dim hover:bg-white/5'}`}
+                                                            onClick={(e) => { e.preventDefault(); setRecurrenceMode('Constante'); setRecurrenceMonths('1'); }}
+                                                            className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${recurrenceMode === 'Constante' ? 'bg-white dark:bg-surface text-primary shadow-sm' : 'text-dim'}`}
                                                         >
-                                                            Crédito
+                                                            À Vista
                                                         </button>
                                                         <button 
-                                                            onClick={(e) => { e.preventDefault(); setCardPaymentOption('debit'); }}
-                                                            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all ${cardPaymentOption === 'debit' ? 'bg-primary text-secondary shadow-md' : 'text-dim hover:bg-white/5'}`}
+                                                            onClick={(e) => { e.preventDefault(); setRecurrenceMode('Parcelado'); setIsNumberSelectorOpen(true); }}
+                                                            className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${recurrenceMode === 'Parcelado' ? 'bg-white dark:bg-surface text-primary shadow-sm' : 'text-dim'}`}
                                                         >
-                                                            Débito
+                                                            Parcelar
                                                         </button>
                                                     </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
+                                                </div>
 
-                                            <div className="space-y-4 pt-4 border-t border-content/5 mt-4">
-                                                {cardPaymentOption === 'credit' ? (
-                                                    <div className="animate-in fade-in slide-in-from-top-2">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <label className="text-[10px] font-bold text-dim uppercase tracking-wider">Parcelamento</label>
-                                                            <div className="flex bg-background-light dark:bg-black/20 p-1 rounded-lg">
-                                                                <button 
-                                                                    onClick={(e) => { e.preventDefault(); setRecurrenceMode('Constante'); setRecurrenceMonths('1'); }}
-                                                                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${recurrenceMode === 'Constante' ? 'bg-white dark:bg-surface text-primary shadow-sm' : 'text-dim'}`}
-                                                                >
-                                                                    À Vista
-                                                                </button>
-                                                                <button 
-                                                                    onClick={(e) => { e.preventDefault(); setRecurrenceMode('Parcelado'); setIsNumberSelectorOpen(true); }}
-                                                                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${recurrenceMode === 'Parcelado' ? 'bg-white dark:bg-surface text-primary shadow-sm' : 'text-dim'}`}
-                                                                >
-                                                                    Parcelar
-                                                                </button>
+                                                {recurrenceMode === 'Parcelado' && (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => setIsNumberSelectorOpen(true)}
+                                                            className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-black text-lg flex items-center justify-between group active:scale-[0.98] transition-all"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="material-symbols-outlined text-primary text-xl">layers</span>
+                                                                <span>{recurrenceMonths}x</span>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-dim">{formatCurrency(parseFloat(amount.replace(/\./g, '').replace(',', '.')) / parseInt(recurrenceMonths))} /mês</span>
+                                                        </button>
+                                                        <CircularNumberSelector 
+                                                            isOpen={isNumberSelectorOpen}
+                                                            onClose={() => setIsNumberSelectorOpen(false)}
+                                                            value={parseInt(recurrenceMonths) || 1}
+                                                            max={75}
+                                                            onChange={(val) => {
+                                                                setRecurrenceMonths(String(val));
+                                                                const total = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
+                                                                const valPerMonth = total / val;
+                                                                const newInstallments = Array.from({ length: val }, (_, i) => ({
+                                                                    number: i + 1,
+                                                                    date: new Date(new Date().setMonth(new Date().getMonth() + i)).toISOString(),
+                                                                    amount: valPerMonth
+                                                                }));
+                                                                setCustomInstallments(newInstallments);
+                                                            }}
+                                                        />
+                                                    </>
+                                                )}
+
+                                                <p className="text-[9px] text-primary font-bold ml-1 mt-2 animate-pulse">
+                                                    *Esta despesa será lançada na fatura.
+                                                </p>
+                                                
+                                                {recurrenceMode === 'Parcelado' && customInstallments.length > 0 && (
+                                                    <div className="mt-4 space-y-2 animate-in fade-in slide-in-from-top-4">
+                                                        <div className="flex items-center justify-between px-1 mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold text-dim uppercase tracking-widest">Editar Parcelas</span>
+                                                                {(() => {
+                                                                    const originalAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
+                                                                    const totalInstallmentsHelper = customInstallments.reduce((acc, curr) => acc + curr.amount, 0);
+                                                                    const diff = totalInstallmentsHelper - originalAmount;
+                                                                    const interestRate = originalAmount > 0 ? (diff / originalAmount) * 100 : 0;
+                                                                    if (diff > 0.05) {
+                                                                        return (
+                                                                            <span className="text-[9px] font-black text-red-500 uppercase tracking-tight bg-red-500/10 px-1.5 py-0.5 rounded-md animate-pulse">
+                                                                                *Juros de {interestRate.toFixed(2)}%
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
                                                             </div>
                                                         </div>
-
-                                                            {recurrenceMode === 'Parcelado' && (
-                                                                <>
-                                                                    <button 
-                                                                        onClick={() => setIsNumberSelectorOpen(true)}
-                                                                        className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-black text-lg flex items-center justify-between group active:scale-[0.98] transition-all"
-                                                                    >
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="material-symbols-outlined text-primary text-xl">layers</span>
-                                                                            <span>{recurrenceMonths}x</span>
-                                                                        </div>
-                                                                        <span className="text-[10px] font-bold text-dim">{formatCurrency(parseFloat(amount.replace(/\./g, '').replace(',', '.')) / parseInt(recurrenceMonths))} /mês</span>
-                                                                    </button>
-                                                                    <CircularNumberSelector 
-                                                                        isOpen={isNumberSelectorOpen}
-                                                                        onClose={() => setIsNumberSelectorOpen(false)}
-                                                                        value={parseInt(recurrenceMonths) || 1}
-                                                                        max={75}
-                                                                        onChange={(val) => {
-                                                                            setRecurrenceMonths(String(val));
-                                                                            // Generate installments immediately when number changes
-                                                                             const total = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
-                                                                             const valPerMonth = total / val;
-                                                                             const newInstallments = Array.from({ length: val }, (_, i) => ({
-                                                                                 number: i + 1,
-                                                                                 date: new Date(new Date().setMonth(new Date().getMonth() + i)).toISOString(),
-                                                                                 amount: valPerMonth
-                                                                             }));
-                                                                             setCustomInstallments(newInstallments);
-                                                                        }}
-                                                                    />
-                                                                </>
-                                                            )}
-
-                                                        <p className="text-[9px] text-primary font-bold ml-1 mt-2 animate-pulse">
-                                                            *Esta despesa será lançada na fatura.
-                                                        </p>
-                                                        
-                                                        {/* Installments List Editing */}
-                                                        {recurrenceMode === 'Parcelado' && customInstallments.length > 0 && (
-                                                            <div className="mt-4 space-y-2 animate-in fade-in slide-in-from-top-4">
-                                                                <div className="flex items-center justify-between px-1 mb-2">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-[10px] font-bold text-dim uppercase tracking-widest">Editar Parcelas</span>
-                                                                        {(() => {
-                                                                            const originalAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
-                                                                            const totalInstallmentsHelper = customInstallments.reduce((acc, curr) => acc + curr.amount, 0);
-                                                                            const diff = totalInstallmentsHelper - originalAmount;
-                                                                            const interestRate = originalAmount > 0 ? (diff / originalAmount) * 100 : 0;
-                                                                            
-                                                                            if (diff > 0.05) { // Tolerance for float errors
-                                                                                return (
-                                                                                    <span className="text-[9px] font-black text-red-500 uppercase tracking-tight bg-red-500/10 px-1.5 py-0.5 rounded-md animate-pulse">
-                                                                                        *Juros de {interestRate.toFixed(2)}%
-                                                                                    </span>
-                                                                                );
-                                                                            }
-                                                                            return null;
-                                                                        })()}
+                                                        <div className="bg-background-light dark:bg-black/20 rounded-xl p-2 max-h-60 overflow-y-auto custom-scrollbar space-y-2">
+                                                            {customInstallments.map((inst, idx) => (
+                                                                <div key={idx} className="flex items-center gap-3 bg-white dark:bg-surface p-2 rounded-lg border border-white/5">
+                                                                    <div className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                                                                        {inst.number}
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 group">
-                                                                        <span className="text-[9px] font-bold text-dim uppercase group-hover:text-primary transition-colors">Valor Fixo:</span>
-                                                                        <div className="flex items-center gap-0.5 border-b border-dim/20 group-hover:border-primary/50 transition-colors">
-                                                                            <span className="text-[10px] text-dim">R$</span>
-                                                                            <input 
-                                                                                type="number" 
-                                                                                step="0.01"
-                                                                                className="w-16 bg-transparent text-right text-[10px] font-bold text-content focus:outline-none p-0"
-                                                                                placeholder="Todos"
-                                                                                onChange={(e) => {
-                                                                                    const val = parseFloat(e.target.value);
-                                                                                    if (!isNaN(val)) {
-                                                                                        setCustomInstallments(prev => prev.map(p => ({ ...p, amount: val })));
-                                                                                    }
-                                                                                }}
-                                                                            />
-                                                                        </div>
+                                                                    <div className="flex-1 text-[10px] font-bold text-dim">
+                                                                        {format(parseISO(inst.date), "dd 'de' MMM", { locale: ptBR })}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-xs font-bold text-dim">R$</span>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            step="0.01"
+                                                                            className="w-20 bg-transparent border-b border-primary/20 text-right text-sm font-bold text-content focus:outline-none focus:border-primary p-0"
+                                                                            value={inst.amount.toFixed(2)}
+                                                                            onChange={(e) => updateInstallmentAmount(idx, parseFloat(e.target.value) || 0)}
+                                                                        />
                                                                     </div>
                                                                 </div>
-                                                                <div className="bg-background-light dark:bg-black/20 rounded-xl p-2 max-h-60 overflow-y-auto custom-scrollbar space-y-2">
-                                                                    {customInstallments.map((inst, idx) => (
-                                                                        <div key={idx} className="flex items-center gap-3 bg-white dark:bg-surface p-2 rounded-lg border border-white/5">
-                                                                            <div className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
-                                                                                {inst.number}
-                                                                            </div>
-                                                                            <div className="flex-1 text-[10px] font-bold text-dim">
-                                                                                {format(parseISO(inst.date), "dd 'de' MMM", { locale: ptBR })}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span className="text-xs font-bold text-dim">R$</span>
-                                                                                <input 
-                                                                                    type="number" 
-                                                                                    step="0.01"
-                                                                                    className="w-20 bg-transparent border-b border-primary/20 text-right text-sm font-bold text-content focus:outline-none focus:border-primary p-0"
-                                                                                    value={inst.amount.toFixed(2)}
-                                                                                    onChange={(e) => updateInstallmentAmount(idx, parseFloat(e.target.value) || 0)}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                     // Debit Logic - Account Selection
-                                                     <div className="animate-in fade-in zoom-in-95 duration-200">
-                                                        <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">
-                                                            Debitar de qual conta?
-                                                        </label>
-                                                        
-                                                        {(() => {
-                                                            const card = cards.find(c => c.id === selectedCardId);
-                                                            const linkedAcc = accounts.find(a => a.id === card?.linkedAccountId);
-                                                            if (linkedAcc) {
-                                                                    return (
-                                                                    <div className="p-3 bg-primary/10 rounded-xl flex items-center gap-3 border border-primary/20">
-                                                                        <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                                                            <span className="material-symbols-outlined text-sm">link</span>
-                                                                        </div>
-                                                                        <div>
-                                                                            <p className="text-[10px] font-bold text-primary uppercase">Conta Vinculada</p>
-                                                                            <p className="text-sm font-bold text-content">{linkedAcc.name}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    );
-                                                            }
-                                                            return (
-                                                                <>
-                                                                    <button onClick={() => setIsAccountSheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
-                                                                        <span className={targetAccount ? 'text-content' : 'text-dim'}>
-                                                                            {targetAccount || 'Selecionar Conta para Débito'}
-                                                                        </span>
-                                                                        <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
-                                                                    </button>
-                                                                    <p className="text-[9px] text-dim mt-2 ml-1">
-                                                                        *Este cartão não possui conta vinculada automática.
-                                                                    </p>
-                                                                </>
-                                                            );
-                                                        })()}
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
+                                        ) : (
+                                            <div className="animate-in fade-in zoom-in-95 duration-200">
+                                                <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-4">Debitar de qual conta?</label>
+                                                {(() => {
+                                                    const card = cards.find(c => c.id === selectedCardId);
+                                                    const linkedAcc = accounts.find(a => a.id === card?.linkedAccountId);
+                                                    if (linkedAcc) {
+                                                        return (
+                                                            <div className="p-3 bg-primary/10 rounded-xl flex items-center gap-3 border border-primary/20">
+                                                                <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                                                    <span className="material-symbols-outlined text-sm">link</span>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] font-bold text-primary uppercase">Conta Vinculada</p>
+                                                                    <p className="text-sm font-bold text-content">{linkedAcc.name}</p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                            <button onClick={() => setIsAccountSheetOpen(true)} className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm flex items-center justify-between group">
+                                                                <span className={targetAccount ? 'text-content' : 'text-dim'}>
+                                                                    {targetAccount || 'Selecionar Conta para Débito'}
+                                                                </span>
+                                                                <span className="material-symbols-outlined text-dim group-hover:text-primary transition-colors">expand_more</span>
+                                                            </button>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                <div>
-                                    <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Notas</label>
-                                    <textarea className="w-full p-3 nm-input border-none rounded-xl text-content font-medium text-xs focus:ring-0 resize-none placeholder:text-dim/50" placeholder="Observações..." rows={4} value={notes} onChange={(e) => setNotes(e.target.value)}></textarea>
                                 </div>
-                            </div>
+                            )}
                         </div>
+                    </div>
+
+                    {/* Notas Section */}
+                    <div className="space-y-4 opacity-0 animate-fade-up delay-400 md:col-span-2 lg:col-span-1">
+                        <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Observações</div>
+                            <div className="space-y-4 opacity-0 animate-fade-up delay-400">
+                                <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2">Observações / Notas</label>
+                                <textarea 
+                                    className="w-full min-h-[120px] p-6 nm-input border-none rounded-2xl text-content font-bold text-sm focus:ring-2 focus:ring-primary/20 resize-none" 
+                                    placeholder="Ex: Gasolina aditivada, troco, etc."
+                                    value={notes}
+                                    onChange={(e) => {
+                                        setNotes(e.target.value);
+                                        setIsNotesManual(true);
+                                    }}
+                                />
+                            </div>
                     </div>
                 </div>
             </div>
 
-            <footer className="md:hidden fixed bottom-0 left-0 right-0 p-6 pb-12 bg-linear-to-t from-background via-background/90 to-transparent z-40 opacity-0 animate-fade-up delay-400">
+            <footer className="md:hidden fixed bottom-0 left-0 right-0 p-6 pb-12 bg-linear-to-t from-background via-background/90 to-transparent z-40">
                 <button 
                     onClick={handleSave} 
                     disabled={isSaving}
@@ -924,7 +1042,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                     <span> {isSaving ? 'Salvando...' : 'Salvar Transação'}</span>
                 </button>
             </footer>
-            {/* Modal de Desvinculação */}
+
             <ConfirmationModal 
                 isOpen={showUnlinkConfirm}
                 onClose={() => setShowUnlinkConfirm(false)}
