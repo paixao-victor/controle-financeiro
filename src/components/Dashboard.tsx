@@ -396,10 +396,13 @@ const Dashboard = () => {
             };
         }).sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
 
-        const isFuelItem = (item: any) => 
-            item.category?.toLowerCase() === 'combustível' || 
-            (item.subcategory || '').toLowerCase().includes('combustível') ||
-            (item.description || '').toLowerCase().includes('combustível');
+        const isFuelItem = (item: any) => {
+            const cat = (item.category || '').toLowerCase();
+            const sub = (item.subcategory || '').toLowerCase();
+            const desc = (item.description || item.notes || item.name || '').toLowerCase();
+            // Busca por "combust" para ser resiliente a acentos (combustível vs combustivel)
+            return cat.includes('combust') || sub.includes('combust') || desc.includes('combust');
+        };
 
         // Fuel Grouping Logic
         const fuelTransactions = currentMonthTransactions.filter(t => isFuelItem(t));
@@ -435,7 +438,7 @@ const Dashboard = () => {
             ...(fuelTransactions.length > 0 || fuelPrediction ? [{
                 id: 'grouped-fuel',
                 category: 'Combustível',
-                description: 'Nível Combustível',
+                description: 'Combustível',
                 amount: fuelTotal,
                 predictedAmount: fuelPrediction?.amount || 0,
                 date: (fuelTransactions[0]?.date || new Date().toISOString()),
