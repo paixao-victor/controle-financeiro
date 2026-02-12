@@ -1,3 +1,4 @@
+import { parseISO } from 'date-fns';
 import type { Transaction } from "@/types";
 
 export const capitalize = (s: string) => {
@@ -7,16 +8,6 @@ export const capitalize = (s: string) => {
 
 export const getTransactionName = (transaction: Transaction): string => {
     // Priority: Subcategory > Description > Category
-    // However, usually Description is specific (e.g. "Uber 12:30") and Category/Subcategory is generic.
-    // The user requested: "título principal... para o nome da subcategoria."
-    // So if Subcategory exists, use it.
-    // If not, use Description? Or Category?
-    // Request says: "Se aparece a despesa o nome deve ser da subcategoria"
-    // So Subcategory is top priority.
-
-    // Logic from previous steps:
-    // t.subcategory ? t.subcategory : (t.description || t.category)
-
     const displayName = transaction.subcategory
         ? transaction.subcategory
         : (transaction.description || transaction.category);
@@ -35,4 +26,14 @@ export const formatCurrency = (amount: number, currency: string = 'BRL') => {
         style: 'currency',
         currency: currency,
     }).format(amount);
+};
+
+export const parseDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    // Use parseISO and remove 'Z' to force parsing as local time
+    try {
+        return parseISO(dateStr.replace(/Z$/, ''));
+    } catch {
+        return new Date(dateStr.replace(/Z$/, ''));
+    }
 };
