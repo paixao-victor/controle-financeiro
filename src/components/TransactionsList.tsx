@@ -30,9 +30,9 @@ interface TransactionsListProps {
 }
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' }) => {
-    const { transactions, deleteTransaction, currentCurrency, isEditMode, availableCategories, accounts, accountBalances } = useTransactions();
-    const { lastFilterPeriod, setLastFilterPeriod, savingsGoal, formatValue } = useSettings();
-    const [filterPeriod, setFilterPeriod] = useState<'today' | 'last5' | 'this_month' | 'last_30' | 'last_60' | 'custom'>((lastFilterPeriod as any) || 'last5');
+    const { transactions, updateTransaction, deleteTransaction, currentCurrency, isEditMode, availableCategories, accounts, accountBalances } = useTransactions();
+    const { setLastFilterPeriod, savingsGoal, formatValue } = useSettings();
+    const [filterPeriod, setFilterPeriod] = useState<'today' | 'last5' | 'this_month' | 'last_30' | 'last_60' | 'last_90' | 'custom'>('last5');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
     const [isManualFilterOpen, setManualFilterOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -273,8 +273,6 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         if (!searchQuery) { // Only apply rigid time filters if NOT searching
             if (filterPeriod === 'today') {
                 filtered = filtered.filter(t => isToday(parseDate(t.date)));
-            } else if (filterPeriod === 'last5') {
-                // Will slice after sorting
             } else if (filterPeriod === 'this_month') {
                 filtered = filtered.filter(t => isSameMonth(parseDate(t.date), now));
             } else if (filterPeriod === 'last_30') {
@@ -285,6 +283,10 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                 const sixtyDaysAgo = new Date();
                 sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
                 filtered = filtered.filter(t => parseDate(t.date) >= sixtyDaysAgo);
+            } else if (filterPeriod === 'last_90') {
+                const ninetyDaysAgo = new Date();
+                ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                filtered = filtered.filter(t => parseDate(t.date) >= ninetyDaysAgo);
             } else if (filterPeriod === 'custom' && customRange.start && customRange.end) {
                 const start = new Date(customRange.start);
                 const end = new Date(customRange.end);
@@ -297,21 +299,51 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
             }
         }
 
-        const sorted = [...filtered].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
+        let sorted = [...filtered].sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
-        // Keep a reference to sorted/filtered data BEFORE grouping for export
+        // Apply Last 5 BEFORE subcategory filter if active
+        if (!searchQuery && filterPeriod === 'last5') {
+            sorted = sorted.slice(0, 5);
+        }
+
+        // Apply Subcategory Filter
+        if (filterSubcategory) {
+            sorted = sorted.filter(t => t.subcategory === filterSubcategory);
+        }
+
         return sorted;
-    }, [transactions, filterPeriod, searchQuery, customRange]);
+    }, [transactions, filterPeriod, searchQuery, customRange, filterSubcategory]);
+
+    // Duplicate Detection Logic
+    const suspectDuplicatesIds = useMemo(() => {
+        const suspects = new Set<string>();
+        const activeTxs = transactions.filter(t => t.status !== 'deleted' && !t.verified);
+        
+        activeTxs.forEach((t1, i) => {
+            activeTxs.slice(i + 1).forEach(t2 => {
+                // Same category and same magnitude of value (allowing small diff if needed, but here exact)
+                if (t1.category === t2.category && Math.abs(t1.amount - t2.amount) < 0.01) {
+                    const d1 = parseDate(t1.date);
+                    const d2 = parseDate(t2.date);
+                    const diffDays = Math.abs(d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24);
+                    
+                    if (diffDays < 30) {
+                        suspects.add(t1.id);
+                        suspects.add(t2.id);
+                    }
+                }
+            });
+        });
+        return suspects;
+    }, [transactions]);
 
     // Grouping for Display
     const groupedTransactions = useMemo(() => {
         const sorted = sortedFilteredTransactions;
-        // Apply Limit for 'last5'
+        // Se 'last5' já foi aplicado no useMemo anterior, apenas retornamos o sorted.
+        // Caso contrário, aplica o slice para scroll infinito.
         let finalData = sorted;
-        if (!searchQuery && filterPeriod === 'last5') {
-            finalData = sorted.slice(0, 5);
-        } else {
-            // Aplica o slice para scroll infinito se não for limited view
+        if (filterPeriod !== 'last5' || searchQuery) {
             finalData = sorted.slice(0, visibleCount);
         }
 
@@ -538,6 +570,12 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                         60 dias
                                     </button>
                                     <button
+                                        onClick={() => setFilterPeriod('last_90')}
+                                        className={`px-3 py-1.5 rounded-full border transition-colors ${filterPeriod === 'last_90' ? 'bg-primary text-secondary border-primary font-bold' : 'bg-surface border-gray-200 dark:border-white/10 text-gray-600 dark:text-dim hover:text-primary font-bold'}`}
+                                    >
+                                        90 dias
+                                    </button>
+                                    <button
                                         onClick={() => setFilterPeriod('this_month')}
                                         className={`px-3 py-1.5 rounded-full border transition-colors ${filterPeriod === 'this_month' ? 'bg-primary text-secondary border-primary font-bold' : 'bg-surface border-gray-200 dark:border-white/10 text-gray-600 dark:text-dim hover:text-primary font-bold'}`}
                                     >
@@ -578,20 +616,34 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                                         className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/5 hover:border-primary/40 dark:hover:border-primary/40 transition-all group cursor-pointer"
                                                     >
                                                         <div className="flex items-center gap-3 lg:gap-4">
-                                                            <div className={`size-10 lg:size-12 rounded-2xl flex items-center justify-center ${t.type === 'income' ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'bg-red-50 dark:bg-red-500/10 text-red-500'}`}>
+                                                            <div className={`size-10 lg:size-12 rounded-2xl flex items-center justify-center relative ${t.type === 'income' ? 'bg-primary/10 dark:bg-primary/20 text-primary' : 'bg-red-50 dark:bg-red-500/10 text-red-500'}`}>
                                                                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
                                                                     {(() => {
                                                                         const subIcon = t.subcategory?.includes(':') ? t.subcategory.split(':')[1].trim() : getSubcategoryIcon(t.category, t.subcategory, t.type as any);
                                                                         return subIcon || (t.type === 'income' ? 'arrow_upward' : 'shopping_bag');
                                                                     })()}
                                                                 </span>
+                                                                {suspectDuplicatesIds.has(t.id) && (
+                                                                    <div 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (window.confirm('Esta transação parece duplicada. Marcar como verificada?')) {
+                                                                                updateTransaction(t.id, { verified: true });
+                                                                            }
+                                                                        }}
+                                                                        className="absolute -top-1 -right-1 size-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 animate-pulse cursor-help"
+                                                                        title="Transação possivelmente duplicada (mesma categoria e valor em curto intervalo). Clique para ignorar aviso."
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-[10px] text-white font-black">priority_high</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-xs lg:text-base text-zinc-900 dark:text-white">
                                                                     {t.subcategory ? capitalize(t.subcategory.split(':')[0].trim()) : capitalize(t.category)}
                                                                 </p>
                                                                 <p className="text-[10px] lg:text-xs text-zinc-600 dark:text-gray-300 font-medium">
-                                                                    {t.subcategory ? capitalize(t.category) : ''} {t.subcategory ? '•' : ''} {format(new Date(t.date), 'HH:mm')}
+                                                                    {t.subcategory ? capitalize(t.category) : ''} {t.subcategory ? '•' : ''} {format(parseDate(t.date), 'HH:mm')}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -641,7 +693,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                                                                 subIcon = getSubcategoryIcon(t.category, t.subcategory, t.type) || 'subdirectory_arrow_right';
                                                                             }
 
-                                                                            return (
+                                                                             return (
                                                                                 <div className="flex items-center gap-1.5">
                                                                                     <span className="material-symbols-outlined text-[14px] text-green-600 dark:text-green-400 font-bold">{subIcon}</span>
                                                                                     <span className="font-bold text-green-600 dark:text-green-400">{subLabel}</span>
@@ -964,13 +1016,13 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                     <div className="flex items-center gap-3">
                                         <div className="size-10 rounded-xl bg-content/5 flex items-center justify-center">
                                             <span className="text-[10px] font-black text-dim uppercase">
-                                                {format(new Date(t.date), 'dd/MM')}
+                                                {format(parseDate(t.date), 'dd/MM')}
                                             </span>
                                         </div>
                                         <div>
                                             <p className="font-bold text-sm text-content">{t.description || t.category}</p>
                                             <p className="text-[10px] font-bold text-dim uppercase tracking-tighter opacity-60">
-                                                {format(new Date(t.date), 'HH:mm')}
+                                                {format(parseDate(t.date), 'HH:mm')}
                                             </p>
                                         </div>
                                     </div>
@@ -1016,14 +1068,6 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            {
-                selectedTransaction && (
-                    <TransactionDetailModal
-                        transaction={selectedTransaction}
-                        onClose={() => setSelectedTransaction(null)}
-                    />
-                )
-            }
 
             {/* Botão de Voltar ao Topo */}
             {showScrollTop && (

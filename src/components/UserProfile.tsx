@@ -28,7 +28,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setProfileAction,
     onRequestLogout
 }) => {
-    const { addTransaction, calculateCurrentBalance, transactions, cards, accounts, updateAccount } = useTransactions() as any;
+    const { addTransaction, calculateCurrentBalance, transactions, cards, accounts, updateAccount, predictedExpenses, predictedIncomes } = useTransactions() as any;
     const { logout, user, updateUser, login } = useAuth();
     
     // Values from auth
@@ -480,7 +480,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                             </button>
                             <button 
                                 onClick={() => {
-                                    const count = checkConsistency(cards, accounts, addSystemNotification);
+                                    const count = checkConsistency(cards, accounts, addSystemNotification, transactions, predictedExpenses, predictedIncomes);
                                     if (count > 0) alert(`Foram encontradas ${count} inconsistências.`);
                                     else alert('Tudo parece certo!');
                                 }}

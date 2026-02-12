@@ -58,6 +58,14 @@ export interface Account {
 
 export type RecurrenceRule = 'monthly' | 'weekly' | null;
 
+export interface FuelDetails {
+    stationName?: string;
+    odometer?: number;
+    liters?: number;
+    fuelType?: 'A' | 'G' | 'D'; // Alcohol, Gasoline, Diesel
+    pricePerLiter?: number;
+}
+
 export interface Transaction {
     id: string;
     userId?: string;
@@ -79,7 +87,9 @@ export interface Transaction {
     parentTransactionId?: string; // ID da transação original para parcelados
     notes?: string | null;
     predictedExpenseId?: string | null;
+    fuelDetails?: FuelDetails | null; // Novos campos de combustível
     status?: 'active' | 'deleted';
+    verified?: boolean;
     createdAt: string; // ISO
     updatedAt: string; // ISO
 }

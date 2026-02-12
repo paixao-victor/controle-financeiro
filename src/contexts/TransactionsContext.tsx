@@ -107,6 +107,7 @@ interface TransactionsContextType {
     hasFullHistory: boolean;
     pullFullHistory: () => Promise<void>;
     accountBalances: Record<string, number>;
+    cardLimits: Record<string, { used: number; total: number; available: number }>;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -140,6 +141,34 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
         return balances;
     }, [accounts, transactions]);
+
+    const cardLimits = useMemo(() => {
+        const limits: Record<string, { used: number; total: number; available: number }> = {};
+        if (!cards) return limits;
+        
+        cards.forEach(card => {
+            if (card.status === 'deleted') return;
+            
+            // For credit cards, calculate usage based on active credit expenses
+            const creditExpenses = transactions.filter(t => 
+                t.status !== 'deleted' && 
+                t.cardId === card.id && 
+                t.type === 'expense' && 
+                (t.paymentOption === 'credit' || card.type === 'credit') &&
+                t.category !== 'Pagamento' // Don't count "Fatura" payments as extra expense
+            );
+
+            const usedAmount = creditExpenses.reduce((sum, t) => sum + t.amount, 0);
+            const totalLimit = card.limit || 0;
+            
+            limits[card.id] = {
+                used: usedAmount,
+                total: totalLimit,
+                available: Math.max(0, totalLimit - usedAmount)
+            };
+        });
+        return limits;
+    }, [cards, transactions]);
 
     // Helper to convert flat category list from backend to grouped structure
     const regroupCategories = (flatCategories: any[]): CategoryGroup => {
@@ -725,7 +754,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             forceRefresh: pullFromSheets,
             hasFullHistory,
             pullFullHistory,
-            accountBalances
+            accountBalances,
+            cardLimits
         }}>
             {children}
         </TransactionsContext.Provider>
