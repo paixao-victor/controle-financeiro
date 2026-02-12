@@ -440,12 +440,12 @@ const Dashboard = () => {
                 category: 'Combustível',
                 description: 'Combustível',
                 amount: fuelTotal,
-                predictedAmount: fuelPrediction?.amount || 0,
+                predictedAmount: fuelPrediction?.predictedAmount || fuelPrediction?.amount || 0,
                 date: (fuelTransactions[0]?.date || new Date().toISOString()),
                 isPrediction: false,
                 transactions: fuelTransactions,
                 circleStatus: (() => {
-                    const pred = fuelPrediction?.amount || 0;
+                    const pred = fuelPrediction?.predictedAmount || fuelPrediction?.amount || 0;
                     if (pred === 0) return 'future';
                     const pct = (fuelTotal / pred) * 100;
                     if (pct >= 80) return 'paid';   // Verde (≥80% da meta)
