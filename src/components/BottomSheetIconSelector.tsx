@@ -19,7 +19,10 @@ const ICONS = [
     'checkroom', 'movie', 'sports_esports', 'music_note', 'local_bar',
     'child_friendly', 'family_restroom', 'celebration', 'card_giftcard',
     'star', 'favorite', 'verified', 'lock', 'schedule', 'warning',
-    'print', 'computer', 'smartphone'
+    'print', 'computer', 'smartphone',
+    'workspace_premium', 'volunteer_activism', 'beach_access', 'receipt_long', 
+    'swap_horiz', 'more_horiz', 'health_and_safety', 'shopping_bag',
+    'bolt', 'gas_meter', 'ev_station', 'car_repair', 'local_taxi', 'delivery_dining'
 ];
 
 const BottomSheetIconSelector: React.FC<BottomSheetIconSelectorProps> = ({

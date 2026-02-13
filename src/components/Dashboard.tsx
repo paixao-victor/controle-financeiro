@@ -1722,53 +1722,101 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* Barra de progresso */}
+                    {/* Barra de progresso Redesenhada */}
                     {selectedFuelDetail?.predictedAmount > 0 && (
                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                    <span className="text-dim">Progresso</span>
-                                    <span className="text-primary">{Math.min(100, Math.round((selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100))}%</span>
-                                </div>
-                                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div 
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${Math.min(100, (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100)}%` }}
-                                        className={`h-full rounded-full transition-all duration-1000 ${
-                                            (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 80 ? 'bg-primary shadow-[0_0_10px_#47f425]' : 
-                                            (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 20 ? 'bg-zinc-500' : 
-                                            'bg-red-500 shadow-[0_0_10px_#ef4444]'
-                                        }`}
-                                    />
-                                </div>
-                            </div>
+                            {(() => {
+                                const amount = selectedFuelDetail.amount;
+                                const pred = selectedFuelDetail.predictedAmount;
+                                const hasExceeded = amount > pred;
+                                const scale = Math.max(amount, pred);
+                                
+                                const progressWidth = (pred / scale) * 100;
+                                const exceedingWidth = hasExceeded ? ((amount - pred) / scale) * 100 : 0;
+                                const excessRatio = hasExceeded ? (amount - pred) / pred : 0;
 
-                            {/* Barra Excedente */}
-                            {selectedFuelDetail.amount > selectedFuelDetail.predictedAmount && (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="space-y-2 pt-2 border-t border-white/5"
-                                >
-                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                        <span className="text-dim">Excedente</span>
-                                        <span className={((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) > 0.5 ? 'text-red-500' : 'text-blue-400'}>
-                                            +{Math.round(((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) * 100)}%
-                                        </span>
+                                return (
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-end px-1">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black text-dim uppercase tracking-[0.2em]">Progresso Total</span>
+                                                <span className="text-lg font-black text-content tracking-tight">{Math.round((amount / pred) * 100)}%</span>
+                                            </div>
+                                            {hasExceeded && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, x: 20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    className="flex flex-col items-end"
+                                                >
+                                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Excedente</span>
+                                                    <span className="text-lg font-black text-red-500 tracking-tight">+{Math.round(excessRatio * 100)}%</span>
+                                                </motion.div>
+                                            )}
+                                        </div>
+
+                                        <div className="h-6 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/5 p-1 relative overflow-hidden">
+                                            <div className="flex h-full w-full rounded-xl overflow-hidden relative">
+                                                {/* Parte da Meta (Verde/Base) */}
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${progressWidth}%` }}
+                                                    className={`h-full transition-all duration-1000 relative z-10 ${
+                                                        (amount / pred) * 100 >= 80 ? 'bg-primary shadow-[inset_0_0_20px_rgba(71,244,37,0.3)]' : 
+                                                        (amount / pred) * 100 >= 20 ? 'bg-zinc-500' : 
+                                                        'bg-red-500'
+                                                    }`}
+                                                />
+
+                                                {/* Efeito Splash e Gradiente de Transição */}
+                                                {hasExceeded && (
+                                                    <motion.div 
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        className="absolute z-30 flex items-center justify-center"
+                                                        style={{ left: `${progressWidth}%`, transform: 'translateX(-50%)', height: '100%' }}
+                                                    >
+                                                        {/* Gradiente de Mistura */}
+                                                        <div className="absolute w-12 h-full bg-gradient-to-r from-primary via-red-500/50 to-red-500 opacity-50 blur-sm" />
+                                                        
+                                                        {/* Ícone Splash */}
+                                                        <motion.div
+                                                            animate={{ 
+                                                                scale: [1, 1.15, 1],
+                                                                rotate: [0, 8, -8, 0]
+                                                            }}
+                                                            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                                                            className="relative z-40 size-9 bg-white dark:bg-zinc-800 rounded-full border-2 border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                                                        >
+                                                            <span 
+                                                                className="material-symbols-outlined text-red-500 text-xl"
+                                                                style={{ fontVariationSettings: "'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 40" }}
+                                                            >
+                                                                water_drop
+                                                            </span>
+                                                        </motion.div>
+                                                    </motion.div>
+                                                )}
+
+                                                {/* Parte Excedente (Vermelha) */}
+                                                {hasExceeded && (
+                                                    <motion.div 
+                                                        initial={{ width: 0 }}
+                                                        animate={{ width: `${exceedingWidth}%` }}
+                                                        className="h-full bg-red-500 relative z-20 shadow-[inset_0_0_20px_rgba(239,68,68,0.3)]"
+                                                    >
+                                                        {/* Brilho pulsante no excesso */}
+                                                        <motion.div 
+                                                            animate={{ opacity: [0.3, 0.6, 0.3] }}
+                                                            transition={{ repeat: Infinity, duration: 2 }}
+                                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                                                        />
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${Math.min(100, ((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) * 100)}%` }}
-                                            className={`h-full rounded-full transition-all duration-1000 ${
-                                                ((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) > 0.5 
-                                                ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' 
-                                                : 'bg-blue-400 shadow-[0_0_10px_#60a5fa]'
-                                            }`}
-                                        />
-                                    </div>
-                                </motion.div>
-                            )}
+                                );
+                            })()}
                         </div>
                     )}
 
