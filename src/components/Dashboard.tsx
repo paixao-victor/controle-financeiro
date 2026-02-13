@@ -1754,7 +1754,48 @@ const Dashboard = () => {
                                             )}
                                         </div>
 
-                                        <div className="h-6 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/5 p-1 relative overflow-hidden">
+                                        <div className="h-6 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/5 p-1 relative">
+                                            {/* Efeito Splash e Gradiente de Transição (Fora do overflow-hidden para não ser cortado) */}
+                                            {hasExceeded && (
+                                                <div 
+                                                    className="absolute z-30 flex items-start justify-center h-full pointer-events-none"
+                                                    style={{ left: `${progressWidth}%`, transform: 'translateX(-50%)', top: 0 }}
+                                                >
+                                                    {/* Ícone Splash Limpo e Interativo - Posicionado ACIMA da barra */}
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.1, y: -12 }}
+                                                        whileTap={{ 
+                                                            scale: 1.4,
+                                                            y: -20,
+                                                            transition: { type: "spring", stiffness: 400, damping: 10 }
+                                                        }}
+                                                        animate={{ 
+                                                            y: [0, -2, 0],
+                                                            rotate: [0, 2, -2, 0]
+                                                        }}
+                                                        transition={{ 
+                                                            y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
+                                                            rotate: { repeat: Infinity, duration: 4, ease: "easeInOut" }
+                                                        }}
+                                                        className="relative z-40 p-0 flex items-center justify-center translate-y-[-3px] pointer-events-auto cursor-pointer outline-hidden"
+                                                        title="Derramar mais!"
+                                                    >
+                                                        <span 
+                                                            className="material-symbols-outlined text-4xl leading-none"
+                                                            style={{ 
+                                                                fontVariationSettings: "'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48",
+                                                                background: "linear-gradient(to right, #47f425, #ef4444)",
+                                                                WebkitBackgroundClip: "text",
+                                                                WebkitTextFillColor: "transparent",
+                                                                filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.4))"
+                                                            }}
+                                                        >
+                                                            water_drop
+                                                        </span>
+                                                    </motion.button>
+                                                </div>
+                                            )}
+
                                             <div className="flex h-full w-full rounded-xl overflow-hidden relative">
                                                 {/* Parte da Meta (Verde/Base) */}
                                                 <motion.div 
@@ -1767,50 +1808,13 @@ const Dashboard = () => {
                                                     }`}
                                                 />
 
-                                                {/* Efeito Splash e Gradiente de Transição */}
-                                                {hasExceeded && (
-                                                    <motion.div 
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        className="absolute z-30 flex items-center justify-center"
-                                                        style={{ left: `${progressWidth}%`, transform: 'translateX(-50%)', height: '100%' }}
-                                                    >
-                                                        {/* Gradiente de Mistura */}
-                                                        <div className="absolute w-12 h-full bg-gradient-to-r from-primary via-red-500/50 to-red-500 opacity-50 blur-sm" />
-                                                        
-                                                        {/* Ícone Splash */}
-                                                        <motion.div
-                                                            animate={{ 
-                                                                scale: [1, 1.15, 1],
-                                                                rotate: [0, 8, -8, 0]
-                                                            }}
-                                                            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                                                            className="relative z-40 size-9 bg-white dark:bg-zinc-800 rounded-full border-2 border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                                                        >
-                                                            <span 
-                                                                className="material-symbols-outlined text-red-500 text-xl"
-                                                                style={{ fontVariationSettings: "'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 40" }}
-                                                            >
-                                                                water_drop
-                                                            </span>
-                                                        </motion.div>
-                                                    </motion.div>
-                                                )}
-
                                                 {/* Parte Excedente (Vermelha) */}
                                                 {hasExceeded && (
                                                     <motion.div 
                                                         initial={{ width: 0 }}
                                                         animate={{ width: `${exceedingWidth}%` }}
                                                         className="h-full bg-red-500 relative z-20 shadow-[inset_0_0_20px_rgba(239,68,68,0.3)]"
-                                                    >
-                                                        {/* Brilho pulsante no excesso */}
-                                                        <motion.div 
-                                                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                                                            transition={{ repeat: Infinity, duration: 2 }}
-                                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                                                        />
-                                                    </motion.div>
+                                                    />
                                                 )}
                                             </div>
                                         </div>
