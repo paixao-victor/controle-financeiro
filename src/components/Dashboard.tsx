@@ -1666,7 +1666,7 @@ const Dashboard = () => {
                                                 (detailTab === 'credit' ? selectedCardDetail?.transactions : selectedCardDetail?.debitTransactions).map((t: any, idx: number) => (
                                                     <div key={t.id + idx} className="flex items-center justify-between p-4 rounded-2xl bg-background-light dark:bg-black/10">
                                                         <div className="flex flex-col flex-1 min-w-0">
-                                                            <span className="text-sm font-bold text-content break-words">
+                                                            <span className="text-sm font-bold text-content wrap-break-word">
                                                                 {t.description || (t.subcategory?.includes(':') ? t.subcategory.split(':')[0].trim() : t.subcategory) || t.category}
                                                             </span>
                                                             <span className="text-[9px] text-dim uppercase font-bold">{format(typeof t.date === 'string' && t.date.length >= 10 ? parseISO(t.date.slice(0, 10)) : new Date(t.date), 'dd/MM/yyyy')}</span>
@@ -1724,21 +1724,51 @@ const Dashboard = () => {
 
                     {/* Barra de progresso */}
                     {selectedFuelDetail?.predictedAmount > 0 && (
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                <span className="text-dim">Progresso</span>
-                                <span className="text-primary">{Math.min(100, Math.round((selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100))}%</span>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                    <span className="text-dim">Progresso</span>
+                                    <span className="text-primary">{Math.min(100, Math.round((selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100))}%</span>
+                                </div>
+                                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100)}%` }}
+                                        className={`h-full rounded-full transition-all duration-1000 ${
+                                            (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 80 ? 'bg-primary shadow-[0_0_10px_#47f425]' : 
+                                            (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 20 ? 'bg-zinc-500' : 
+                                            'bg-red-500 shadow-[0_0_10px_#ef4444]'
+                                        }`}
+                                    />
+                                </div>
                             </div>
-                            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full transition-all duration-1000 ${
-                                        (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 80 ? 'bg-primary shadow-[0_0_10px_#47f425]' : 
-                                        (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100 >= 20 ? 'bg-zinc-500' : 
-                                        'bg-red-500 shadow-[0_0_10px_#ef4444]'
-                                    }`}
-                                    style={{ width: `${Math.min(100, (selectedFuelDetail.amount / selectedFuelDetail.predictedAmount) * 100)}%` }}
-                                />
-                            </div>
+
+                            {/* Barra Excedente */}
+                            {selectedFuelDetail.amount > selectedFuelDetail.predictedAmount && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="space-y-2 pt-2 border-t border-white/5"
+                                >
+                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                        <span className="text-dim">Excedente</span>
+                                        <span className={((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) > 0.5 ? 'text-red-500' : 'text-blue-400'}>
+                                            +{Math.round(((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) * 100)}%
+                                        </span>
+                                    </div>
+                                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min(100, ((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) * 100)}%` }}
+                                            className={`h-full rounded-full transition-all duration-1000 ${
+                                                ((selectedFuelDetail.amount - selectedFuelDetail.predictedAmount) / selectedFuelDetail.predictedAmount) > 0.5 
+                                                ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' 
+                                                : 'bg-blue-400 shadow-[0_0_10px_#60a5fa]'
+                                            }`}
+                                        />
+                                    </div>
+                                </motion.div>
+                            )}
                         </div>
                     )}
 
@@ -1755,7 +1785,7 @@ const Dashboard = () => {
                                                 <span className="material-symbols-outlined text-primary text-lg">local_gas_station</span>
                                             </div>
                                             <div className="flex flex-col flex-1 min-w-0">
-                                                <span className="text-sm font-bold text-content break-words">{t.description || t.notes || 'Abastecimento'}</span>
+                                                <span className="text-sm font-bold text-content wrap-break-word">{t.description || t.notes || 'Abastecimento'}</span>
                                                 <span className="text-[10px] text-dim uppercase font-bold">{format(typeof t.date === 'string' && t.date.length >= 10 ? parseISO(t.date.slice(0, 10)) : new Date(t.date), 'dd/MM/yyyy')}</span>
                                             </div>
                                         </div>
