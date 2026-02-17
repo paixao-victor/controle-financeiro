@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useRef } from 'react';
+import os
+
+content = r'''import React, { useState, useMemo, useRef } from 'react';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { formatCurrency, parseDate } from '@/utils/formatters';
+import { formatCurrency } from '@/utils/formatters';
 import type { Transaction, TransactionType } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,18 +16,11 @@ interface AddTransactionProps {
     onClose: () => void;
     onSaveSuccess: () => void;
     initialData?: {
-        id?: string;
         amount?: number;
         category?: string;
         subcategory?: string;
         notes?: string;
         date?: string;
-        paymentMethod?: 'banco' | 'cartao';
-        accountId?: string;
-        cardId?: string;
-        paymentOption?: 'debit' | 'credit';
-        type?: TransactionType;
-        fuelDetails?: any;
     };
 }
 
@@ -33,19 +28,18 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [amount, setAmount] = useState(initialData?.amount
         ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(initialData.amount)
         : '0,00');
-    const [type, setType] = useState<TransactionType>(initialData?.type || 'expense');
+    const [type, setType] = useState<TransactionType>('expense');
     const [recurrenceMode, setRecurrenceMode] = useState<'Constante' | 'Parcelado'>('Constante'); // Moved up to use in Credit logic
     const [category, setCategory] = useState(initialData?.category || '');
     const [subcategory, setSubcategory] = useState(initialData?.subcategory || '');
     const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurrenceMonths, setRecurrenceMonths] = useState('1');
-    const [paymentMethod, setPaymentMethod] = useState<'banco' | 'cartao'>(initialData?.paymentMethod || 'banco');
+    const [paymentMethod, setPaymentMethod] = useState<'banco' | 'cartao'>('banco');
     const [targetAccount, setTargetAccount] = useState('');
-    const [selectedCardId, setSelectedCardId] = useState(initialData?.cardId || '');
+    const [selectedCardId, setSelectedCardId] = useState('');
     const [cardPaymentOption, setCardPaymentOption] = useState<'debit' | 'credit'>('credit');
     const [notes, setNotes] = useState(initialData?.notes || '');
-    const [transactionId, setTransactionId] = useState<string | null>(initialData?.id || null);
     const [predictedExpenseId, setPredictedExpenseId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -57,7 +51,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
     const [pricePerLiter, setPricePerLiter] = useState('');
 
 
-    const { addTransaction, updateTransaction, availableCategories, cards, accounts, predictedExpenses } = useTransactions();
+    const { addTransaction, availableCategories, cards, accounts, predictedExpenses } = useTransactions();
 
     // Effect to auto-select linked account for Debit
     React.useEffect(() => {
@@ -71,14 +65,6 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
             }
         }
     }, [paymentMethod, cardPaymentOption, selectedCardId, cards, accounts]);
-
-    // Effect to resolve initial account name from ID
-    React.useEffect(() => {
-        if (initialData?.accountId && !targetAccount && accounts.length > 0) {
-            const acc = accounts.find(a => a.id === initialData.accountId);
-            if (acc) setTargetAccount(acc.name);
-        }
-    }, [accounts, initialData]);
 
     // Estados dos Bottom Sheets
     const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
@@ -143,34 +129,20 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 if (data.amount !== undefined) setAmount(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(data.amount));
                 if (data.category !== undefined) setCategory(data.category);
                 if (data.subcategory !== undefined) setSubcategory(data.subcategory);
-                if (data.date !== undefined) {
-                    const d = parseDate(data.date);
-                    setDate(format(d, 'yyyy-MM-dd'));
-                }
+                if (data.date !== undefined) setDate(data.date);
                 if (data.notes !== undefined) setNotes(data.notes);
                 if (data.predictedExpenseId !== undefined) setPredictedExpenseId(data.predictedExpenseId);
-                if (data.id !== undefined) setTransactionId(data.id);
-                if (data.type !== undefined) setType(data.type);
 
                 // New logic for payment linkage
                 if (data.paymentMethod) {
                     setPaymentMethod(data.paymentMethod);
-                    if (data.paymentMethod === 'cartao') {
-                        if (data.cardId) setSelectedCardId(data.cardId);
-                        if (data.paymentOption) setCardPaymentOption(data.paymentOption);
+                    if (data.paymentMethod === 'cartao' && data.cardId) {
+                        setSelectedCardId(data.cardId);
+                        setCardPaymentOption('credit');
+                    } else if (data.paymentMethod === 'banco' && data.accountId) {
+                        const account = accounts.find(a => a.id === data.accountId);
+                        if (account) setTargetAccount(account.name);
                     }
-                    if (data.accountId) {
-                        const acc = accounts.find(a => a.id === data.accountId);
-                        if (acc) setTargetAccount(acc.name);
-                    }
-                }
-
-                if (data.fuelDetails) {
-                    setStationName(data.fuelDetails.stationName || '');
-                    setOdometer(data.fuelDetails.odometer ? new Intl.NumberFormat('pt-BR').format(data.fuelDetails.odometer) : '');
-                    setLiters(data.fuelDetails.liters ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(data.fuelDetails.liters) : '');
-                    setFuelType(data.fuelDetails.fuelType || 'G');
-                    setPricePerLiter(data.fuelDetails.pricePerLiter ? data.fuelDetails.pricePerLiter.toString().replace('.', ',') : '');
                 }
             }
         };
@@ -179,60 +151,17 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         return () => window.removeEventListener('open-add-transaction', handleOpen);
     }, [accounts]);
 
+    // When Total Amount changes manually, redistribute (unless it matches sum of custom)
     // Auto-calculate price per liter
     React.useEffect(() => {
         const total = parseFloat(amount.replace(/\./g, '').replace(',', '.')) || 0;
-        const l = parseFloat(liters.replace(/\./g, '').replace(',', '.')) || 0;
+        const l = parseFloat(liters.replace(',', '.')) || 0;
         if (total > 0 && l > 0) {
-            setPricePerLiter((total / l).toFixed(2).replace('.', ','));
+            setPricePerLiter((total / l).toFixed(3).replace('.', ','));
         }
     }, [amount, liters]);
 
-    // Fuel related logic
-    const isFuelSubcategory = useMemo(() => 
-        subcategory.toLowerCase().includes('combustível') || subcategory.toLowerCase().includes('combustivel')
-    , [subcategory]);
-
-    const handleLitersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value === '') {
-            setLiters('');
-            return;
-        }
-        const floatValue = parseInt(value) / 100;
-        setLiters(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(floatValue));
-    };
-
-    const handleOdometerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value === '') {
-            setOdometer('');
-            return;
-        }
-        setOdometer(new Intl.NumberFormat('pt-BR').format(parseInt(value)));
-    };
-
-    // Keep track if user edited notes manually
-    const [isNotesManual, setIsNotesManual] = useState(false);
-    const lastSystemNoteRef = useRef('');
-    
-    React.useEffect(() => {
-        if (!isFuelSubcategory) return;
-        
-        const pattern = /⛽ Posto (.*?) \| (.*?) L \| (.*?) Km \| R\$ (.*?) \/L/;
-        const match = notes.match(pattern);
-        
-        // If it matches our system pattern OR notes are empty, we can update dynamically
-        if (match || !notes || !isNotesManual) {
-            const fuelInfo = `⛽ Posto ${stationName || 'Posto'} | ${liters || '0,00'} L | ${odometer || '0'} Km | R$ ${pricePerLiter || '0,00'} /L`;
-            
-            // Only update if something actually changed to avoid cursor jumps
-            if (notes !== fuelInfo) {
-                setNotes(fuelInfo);
-                lastSystemNoteRef.current = fuelInfo;
-            }
-        }
-    }, [stationName, odometer, liters, pricePerLiter, isFuelSubcategory, isNotesManual, notes]);
+    const isFuelSubcategory = subcategory.toLowerCase().includes('combustível') || subcategory.toLowerCase().includes('combustivel');
 
     const handleAmountBlur = () => {
          const total = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
@@ -382,13 +311,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
         category: string,
         subcategory: string
     ) => {
+        // Recurrence Mode Logic for Credit Card Installments (Reuse existing logic but clarify UI)
         if (paymentMethod === 'cartao' && cardPaymentOption === 'credit' && recurrenceMode === 'Parcelado' && parseInt(recurrenceMonths) > 1) {
-            // Se for edição de uma transação parcelada, simplificamos: removemos o ID para não tentar atualizar 
-            // uma única transação como se fosse todo o grupo. Idealmente o usuário edita a recorrência.
-            // Mas para "Edição Completa", vamos adicionar como novas se for parcelado.
             const numMonths = parseInt(recurrenceMonths);
             const parentId = uuidv4();
 
+            // Use custom installments if valid, otherwise calculate
             const installmentsToSave = customInstallments.length === numMonths ? customInstallments : Array.from({ length: numMonths }, (_, i) => {
                  const installmentAmount = floatAmount / numMonths;
                  const installmentDate = new Date(date);
@@ -415,27 +343,26 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 addTransaction(installmentTx);
             });
         } else {
-            const transactionData: Transaction = {
+            const fuelInfo = (isFuelSubcategory && type === 'expense' && odometer && liters) 
+                ? `\n⛽ ${stationName || 'Posto'} | ${odometer}km | ${liters}L | R$ ${pricePerLiter}/L` 
+                : '';
+
+            const newTransaction: Transaction = {
                 ...baseTransaction,
-                id: transactionId || uuidv4(),
+                id: uuidv4(),
                 amount: floatAmount,
                 date,
-                description: (notes || `${category}${subcategory ? ' - ' + subcategory : ''}`),
+                description: (notes || `${category}${subcategory ? ' - ' + subcategory : ''}${targetAccount ? ' (' + targetAccount + ')' : ''}`) + fuelInfo,
                 fuelDetails: (isFuelSubcategory && type === 'expense') ? {
                     stationName: stationName || undefined,
-                    odometer: odometer ? parseInt(odometer.replace(/\./g, '')) : undefined,
+                    odometer: odometer ? parseInt(odometer) : undefined,
                     liters: liters ? parseFloat(liters.replace(',', '.')) : undefined,
                     fuelType,
                     pricePerLiter: pricePerLiter ? parseFloat(pricePerLiter.replace(',', '.')) : undefined
                 } : undefined,
-                updatedAt: new Date().toISOString()
             } as Transaction;
 
-            if (transactionId) {
-                updateTransaction(transactionId, transactionData);
-            } else {
-                addTransaction(transactionData);
-            }
+            addTransaction(newTransaction);
         }
         
         onSaveSuccess();
@@ -480,9 +407,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                 <button onClick={onClose} className="flex items-center justify-center w-10 h-10 rounded-full nm-card hover:scale-95 transition-transform active:shadow-nm-inset">
                     <span className="material-symbols-outlined text-dim">close</span>
                 </button>
-                <h1 className="text-lg font-bold tracking-tight text-content lg:text-2xl">
-                    {transactionId ? 'Editar Transação' : 'Adicionar Transação'}
-                </h1>
+                <h1 className="text-lg font-bold tracking-tight text-content lg:text-2xl">Adicionar Transação</h1>
                 <div className="w-10 md:hidden"></div>
                 <button onClick={handleSave} className="hidden md:flex items-center gap-2 px-6 py-2 bg-primary rounded-full text-secondary font-bold shadow-glow hover:brightness-105 active:scale-95 transition-all">
                     <span>Salvar</span>
@@ -745,33 +670,25 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative group">
+                                    <div>
                                         <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">KM Total</label>
-                                        <div className="relative">
-                                            <input 
-                                                type="text" 
-                                                inputMode="numeric"
-                                                className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center pr-10" 
-                                                placeholder="0.000" 
-                                                value={odometer} 
-                                                onChange={handleOdometerChange}
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-dim pointer-events-none">Km</span>
-                                        </div>
+                                        <input 
+                                            type="number" 
+                                            className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center" 
+                                            placeholder="Ex: 54200" 
+                                            value={odometer} 
+                                            onChange={(e) => setOdometer(e.target.value)}
+                                        />
                                     </div>
-                                    <div className="relative group">
+                                    <div>
                                         <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Litros</label>
-                                        <div className="relative">
-                                            <input 
-                                                type="text" 
-                                                inputMode="numeric"
-                                                className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center pr-8" 
-                                                placeholder="00,00" 
-                                                value={liters} 
-                                                onChange={handleLitersChange}
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-dim pointer-events-none">l</span>
-                                        </div>
+                                        <input 
+                                            type="text" 
+                                            className="w-full h-12 px-4 nm-input border-none rounded-xl text-content font-bold text-sm text-center" 
+                                            placeholder="00,00" 
+                                            value={liters} 
+                                            onChange={(e) => setLiters(e.target.value)}
+                                        />
                                     </div>
                                 </div>
                                 <div>
@@ -839,7 +756,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                                         <span className={targetAccount ? 'text-content' : 'text-dim'}>
                                             {targetAccount || (type === 'income' ? 'Onde entra?' : 'De onde sai?')}
                                         </span>
-                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors inline-block! visible`}>account_balance_wallet</span>
+                                        <span className={`material-symbols-outlined text-dim group-hover:${type === 'income' ? 'text-primary' : 'text-red-500'} transition-colors !inline-block visible`}>account_balance_wallet</span>
                                     </button>
                                     <BottomSheetSelect 
                                         isOpen={isAccountSheetOpen}
@@ -1049,18 +966,15 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
                     {/* Notas Section */}
                     <div className="space-y-4 opacity-0 animate-fade-up delay-400 md:col-span-2 lg:col-span-1">
                         <div className="text-[10px] font-bold text-dim uppercase tracking-widest px-1">Observações</div>
-                            <div className="space-y-4 opacity-0 animate-fade-up delay-400">
-                                <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2">Observações / Notas</label>
-                                <textarea 
-                                    className="w-full min-h-[120px] p-6 nm-input border-none rounded-2xl text-content font-bold text-sm focus:ring-2 focus:ring-primary/20 resize-none" 
-                                    placeholder="Ex: Gasolina aditivada, troco, etc."
-                                    value={notes}
-                                    onChange={(e) => {
-                                        setNotes(e.target.value);
-                                        setIsNotesManual(true);
-                                    }}
-                                />
-                            </div>
+                        <div className="nm-card rounded-2xl p-6 h-full flex flex-col">
+                            <label className="block text-[10px] font-bold text-dim uppercase tracking-wider mb-2 px-1">Notas</label>
+                            <textarea 
+                                className="w-full p-3 nm-input border-none rounded-xl text-content font-medium text-xs focus:ring-0 resize-none placeholder:text-dim/50 flex-1 min-h-[120px]" 
+                                placeholder="Observações..." 
+                                value={notes} 
+                                onChange={(e) => setNotes(e.target.value)}
+                            ></textarea>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1097,3 +1011,18 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, onSaveSuccess,
 };
 
 export default AddTransaction;
+'''
+
+import sys
+import io
+
+# Ensure we use UTF-8
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# Fix path for Windows
+target_path = r'c:\Victor\Portfolio\Orçamento\Orçamento\webapp_financeiro\src\components\AddTransaction.tsx'
+
+with open(target_path, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print(f"Successfully fixed {target_path}")

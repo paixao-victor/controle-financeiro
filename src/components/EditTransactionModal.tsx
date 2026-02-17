@@ -5,6 +5,7 @@ import type { Transaction, TransactionType } from '@/types';
 import { format } from 'date-fns';
 import BottomSheetSelect from './BottomSheetSelect';
 import ConfirmationModal from './ConfirmationModal';
+import { parseDate } from '@/utils/formatters';
 
 interface EditTransactionModalProps {
     transaction: Transaction;
@@ -150,9 +151,29 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
                     
                     {/* Header */}
                     <div className="px-6 py-4 border-b border-content/5 flex items-center justify-between bg-surface dark:bg-zinc-900 z-10 sticky top-0">
-                        <h2 className="text-lg font-black text-content uppercase tracking-wider">
-                            {showConfirm ? 'Confirmar' : 'Editar Transação'}
-                        </h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-lg font-black text-content uppercase tracking-wider">
+                                {showConfirm ? 'Confirmar' : 'Editar Transação'}
+                            </h2>
+                            {!showConfirm && (
+                                <button 
+                                    onClick={() => {
+                                        window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                            detail: {
+                                                ...transaction,
+                                                // Pre-format some fields if necessary, but AddTransaction now handles most
+                                            }
+                                        }));
+                                        onClose();
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-full transition-all group active:scale-95"
+                                    title="Abrir formulário completo para editar conta, cartão e outros detalhes"
+                                >
+                                    <span className="material-symbols-outlined text-sm font-bold">edit_note</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Edição Completa</span>
+                                </button>
+                            )}
+                        </div>
                         <button onClick={onClose} className="p-2 hover:bg-content/5 rounded-full transition-colors active:scale-90">
                             <span className="material-symbols-outlined">close</span>
                         </button>
@@ -326,9 +347,9 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
                                         )}
                                         {pendingChanges && transaction.date !== pendingChanges.date && (
                                             <div className="flex items-center justify-center gap-2 text-xs font-bold">
-                                                <span className="text-dim">{format(new Date(transaction.date), 'dd/MM/yyyy')}</span>
+                                                <span className="text-dim">{format(parseDate(transaction.date), 'dd/MM/yyyy')}</span>
                                                 <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
-                                                <span className="text-content">{format(new Date(pendingChanges.date!), 'dd/MM/yyyy')}</span>
+                                                <span className="text-content">{format(parseDate(pendingChanges.date!), 'dd/MM/yyyy')}</span>
                                             </div>
                                         )}
                                     </div>

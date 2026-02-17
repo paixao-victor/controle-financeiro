@@ -17,13 +17,18 @@ const BANKS = [
 ];
 
 const MyCards: React.FC<{ onBack: () => void }> = () => {
-    const { cards, transactions, updateCard } = useTransactions();
+    const { cards, transactions, updateCard, forceRefresh } = useTransactions();
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
     const [detailTab, setDetailTab] = useState<'credit' | 'debit'>('credit');
     const activeCards = cards.filter(c => c.status !== 'deleted');
     const [cardStack, setCardStack] = useState<Card[]>(activeCards);
     const [showManagement, setShowManagement] = useState(false);
     const [dragStarted, setDragStarted] = useState(false);
+
+    // Sincronização proativa ao carregar os Cartões
+    React.useEffect(() => {
+        forceRefresh();
+    }, []);
 
     // Keep stack synced with context but preserve session order
     React.useEffect(() => {
@@ -342,7 +347,7 @@ const MyCards: React.FC<{ onBack: () => void }> = () => {
                                                             <span className="material-symbols-outlined text-xl">shopping_bag</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold text-content leading-tight break-words">{t.description || t.subcategory || t.category}</p>
+                                                            <p className="text-sm font-bold text-content leading-tight wrap-break-word">{t.description || t.subcategory || t.category}</p>
                                                             <p className="text-[9px] text-dim font-bold mt-1 uppercase tracking-wider">{format(parseISO(t.date.slice(0, 10)), "dd 'de' MMM", { locale: ptBR })}</p>
                                                         </div>
                                                     </div>

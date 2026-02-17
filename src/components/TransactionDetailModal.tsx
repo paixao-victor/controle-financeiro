@@ -2,6 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransactions } from '@/contexts/TransactionsContext';
+import { parseDate } from '@/utils/formatters';
 import type { Transaction } from '@/types';
 
 interface TransactionDetailModalProps {
@@ -27,13 +28,29 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
                 className="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                >
-                    <span className="material-symbols-outlined text-gray-400">close</span>
-                </button>
+                {/* Actions */}
+                <div className="absolute top-4 right-4 flex items-center gap-1">
+                    <button
+                        onClick={() => {
+                            window.dispatchEvent(new CustomEvent('open-add-transaction', {
+                                detail: {
+                                    ...transaction
+                                }
+                            }));
+                            onClose();
+                        }}
+                        className="p-2 rounded-full hover:bg-primary/10 text-primary transition-colors active:scale-90"
+                        title="Edição Completa"
+                    >
+                        <span className="material-symbols-outlined text-xl">edit_note</span>
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-gray-400">close</span>
+                    </button>
+                </div>
 
                 {/* Header */}
                 <div className="mb-6">
@@ -70,7 +87,7 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
                     <div>
                         <label className="text-xs font-medium text-dim uppercase tracking-wider">Data</label>
                         <p className="text-sm font-semibold text-content mt-1">
-                            {format(new Date(transaction.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                            {format(parseDate(transaction.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                         </p>
                     </div>
 

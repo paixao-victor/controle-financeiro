@@ -2,6 +2,13 @@ const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
 export async function postToScript(action: string, payload: any) {
     try {
+        if (!APPS_SCRIPT_URL) {
+            console.error('ERRO CRÍTICO: VITE_APPS_SCRIPT_URL não definida no ambiente!');
+            throw new Error('Configuração de sincronização ausente. Verifique o arquivo .env');
+        }
+
+        console.log(`[Sync] Iniciando ${action} para: ${APPS_SCRIPT_URL}`);
+        
         const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             headers: {

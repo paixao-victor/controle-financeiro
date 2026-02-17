@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import EditTransactionModal from './EditTransactionModal';
 
 const TransactionsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { transactions, deleteTransaction, restoreTransaction, pullFullHistory, isSyncing, hasFullHistory } = useTransactions();
+    const { transactions, deleteTransaction, restoreTransaction, pullFullHistory, isSyncing, hasFullHistory, accounts, cards } = useTransactions();
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -250,7 +250,7 @@ const TransactionsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-1">
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                     <span className="opacity-60">{transaction.category}</span>
                                                     {transaction.subcategory && (
                                                         <>
@@ -271,6 +271,17 @@ const TransactionsManagement: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                                                             </div>
                                                         </>
                                                     )}
+                                                    <span className="text-[10px] opacity-30">•</span>
+                                                    <div className="flex items-center gap-1 text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider">
+                                                        <span className="material-symbols-outlined text-[12px]">
+                                                            {transaction.paymentMethod === 'cartao' ? 'credit_card' : 'account_balance'}
+                                                        </span>
+                                                        <span>
+                                                            {transaction.paymentMethod === 'cartao' 
+                                                                ? (cards.find(c => c.id === transaction.cardId)?.alias || 'Cartão')
+                                                                : (accounts.find(a => a.id === transaction.accountId)?.name || 'Conta')}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

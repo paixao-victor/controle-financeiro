@@ -62,10 +62,10 @@ const NavItem = ({ icon, label, isActive, onClick, badge, isExpanded = true }: N
         }
             `}
     >
-      <div className="flex items-center justify-center w-8 shrink-0">
+      <div className="flex items-center justify-center w-8 shrink-0 relative">
           <span className={`material-symbols-outlined text-2xl ${isActive ? 'text-primary' : ''}`}>{icon}</span>
           {badge !== undefined && badge > 0 && (
-              <span className="absolute -top-1 -right-1 size-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full animate-bounce">
+              <span className="absolute -top-1.5 -right-1.5 size-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full shadow-lg border-2 border-surface animate-bounce">
                   {badge > 9 ? '9+' : badge}
               </span>
           )}

@@ -278,6 +278,22 @@ const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                         </div>
                         <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">chevron_right</span>
                     </button>
+
+                    <button 
+                        onClick={() => onNavigate('Extrato')}
+                        className="w-full flex items-center justify-between p-4 hover:bg-content/5 rounded-2xl transition-colors group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="size-12 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
+                                <span className="material-symbols-outlined">rule</span>
+                            </div>
+                            <div className="text-left">
+                                <p className="font-black text-content">Verificar Consistência</p>
+                                <p className="text-xs text-dim font-bold">Identificar transações duplicadas ou suspeitas</p>
+                            </div>
+                        </div>
+                        <span className="material-symbols-outlined text-dim group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    </button>
                 </div>
             </section>
 

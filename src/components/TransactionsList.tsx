@@ -30,7 +30,7 @@ interface TransactionsListProps {
 }
 
 const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' }) => {
-    const { transactions, updateTransaction, deleteTransaction, currentCurrency, isEditMode, availableCategories, accounts, accountBalances } = useTransactions();
+    const { transactions, updateTransaction, deleteTransaction, currentCurrency, isEditMode, availableCategories, accounts, accountBalances, cards } = useTransactions();
     const { setLastFilterPeriod, savingsGoal, formatValue } = useSettings();
     const [filterPeriod, setFilterPeriod] = useState<'today' | 'last5' | 'this_month' | 'last_30' | 'last_60' | 'last_90' | 'custom'>('last5');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -207,7 +207,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
     // Cálculos de Resumo (SEMPRE DO MÊS ATUAL ou GERAL - seguindo o padrão de extrato)
     const summary = useMemo(() => {
         const now = new Date();
-        const thisMonthTransactions = transactions.filter(t => isSameMonth(parseDate(t.date), now));
+        const thisMonthTransactions = transactions.filter(t => t.status !== 'deleted' && isSameMonth(parseDate(t.date), now));
 
         const income = thisMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const expense = thisMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
@@ -215,7 +215,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
         
         // Dados do mês anterior para comparação
         const lastMonth = subMonths(now, 1);
-        const lastMonthTransactions = transactions.filter(t => isSameMonth(parseDate(t.date), lastMonth));
+        const lastMonthTransactions = transactions.filter(t => t.status !== 'deleted' && isSameMonth(parseDate(t.date), lastMonth));
         const lastMonthIncome = lastMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
         const lastMonthSavingsAmount = lastMonthIncome - lastMonthExpense;
@@ -642,68 +642,81 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ searchQuery = '' })
                                                                 <p className="font-bold text-xs lg:text-base text-zinc-900 dark:text-white">
                                                                     {t.subcategory ? capitalize(t.subcategory.split(':')[0].trim()) : capitalize(t.category)}
                                                                 </p>
-                                                                <p className="text-[10px] lg:text-xs text-zinc-600 dark:text-gray-300 font-medium">
-                                                                    {t.subcategory ? capitalize(t.category) : ''} {t.subcategory ? '•' : ''} {format(parseDate(t.date), 'HH:mm')}
-                                                                </p>
+                                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] lg:text-xs text-zinc-600 dark:text-gray-300 font-medium">
+                                                                    {t.subcategory ? <span>{capitalize(t.category)}</span> : null}
+                                                                    {t.subcategory ? <span className="opacity-30">•</span> : null}
+                                                                    <span>{format(parseDate(t.date), 'HH:mm')}</span>
+                                                                    <span className="opacity-30">•</span>
+                                                                    <div className="flex items-center gap-1 text-primary/80 font-bold bg-primary/5 px-1.5 py-0.5 rounded-md">
+                                                                        <span className="material-symbols-outlined text-[12px]">
+                                                                            {t.paymentMethod === 'cartao' ? 'credit_card' : 'account_balance'}
+                                                                        </span>
+                                                                        <span>
+                                                                            {t.paymentMethod === 'cartao' 
+                                                                                ? (cards.find(c => c.id === t.cardId)?.alias || 'Cartão')
+                                                                                : (accounts.find(a => a.id === t.accountId)?.name || 'Conta')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
-                                                                    <div className="flex flex-col items-end gap-1">
-                                                                        <p className={`font-extrabold text-xs lg:text-base ${t.type === 'income' ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-500/10 px-2 py-0.5 rounded' : 'text-zinc-900 dark:text-white'}`}>
-                                                                            {t.type === 'income' ? '+' : '-'} {formatValue(t.amount, formatCurrency)}
-                                                                        </p>
-                                                                        <div className={`flex gap-2 transition-opacity ${isEditMode ? 'opacity-100 visible' : 'opacity-0 group-hover:opacity-100'}`}>
-                                                                            <button 
-                                                                                onClick={(e) => handleEditClick(t, e)}
-                                                                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg text-dim hover:text-primary transition-colors"
-                                                                                title="Editar"
-                                                                            >
-                                                                                <span className="material-symbols-outlined text-[16px]">edit</span>
-                                                                            </button>
-                                                                            <button 
-                                                                                onClick={(e) => handleDeleteClick(t.id, e)}
-                                                                                className="p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-dim hover:text-red-500 transition-colors"
-                                                                                title="Excluir"
-                                                                            >
-                                                                                <span className="material-symbols-outlined text-[16px]">delete</span>
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                        <div className="flex items-center gap-2 text-xs text-dim mt-1 font-medium">
-                                                            <span className="opacity-60">{t.category}</span>
-                                                            {t.subcategory && (
-                                                                <>
-                                                                    <span className="text-[10px] opacity-30">/</span>
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <p className={`font-extrabold text-xs lg:text-base ${t.type === 'income' ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-500/10 px-2 py-0.5 rounded' : 'text-zinc-900 dark:text-white'}`}>
+                                                                    {t.type === 'income' ? '+' : '-'} {formatValue(t.amount, formatCurrency)}
+                                                                </p>
+                                                                <div className={`flex gap-2 transition-opacity ${isEditMode ? 'opacity-100 visible' : 'opacity-0 group-hover:opacity-100'}`}>
                                                                     <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setFilterSubcategory(t.subcategory!);
-                                                                        }}
-                                                                        className="flex items-center gap-1.5 bg-green-500/10 dark:bg-green-500/20 px-2 py-0.5 rounded-full border border-green-500/20 hover:border-green-500/40 transition-all group/badge"
+                                                                        onClick={(e) => handleEditClick(t, e)}
+                                                                        className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg text-dim hover:text-primary transition-colors"
+                                                                        title="Editar"
                                                                     >
-                                                                        {(() => {
-                                                                            let subLabel = t.subcategory;
-                                                                            let subIcon = '';
-
-                                                                            if (t.subcategory.includes(':')) {
-                                                                                const parts = t.subcategory.split(':');
-                                                                                subLabel = parts[0].trim();
-                                                                                subIcon = parts[1]?.trim() || '';
-                                                                            } else {
-                                                                                subIcon = getSubcategoryIcon(t.category, t.subcategory, t.type) || 'subdirectory_arrow_right';
-                                                                            }
-
-                                                                             return (
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <span className="material-symbols-outlined text-[14px] text-green-600 dark:text-green-400 font-bold">{subIcon}</span>
-                                                                                    <span className="font-bold text-green-600 dark:text-green-400">{subLabel}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })()}
+                                                                        <span className="material-symbols-outlined text-[16px]">edit</span>
                                                                     </button>
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                                    <button 
+                                                                        onClick={(e) => handleDeleteClick(t.id, e)}
+                                                                        className="p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-dim hover:text-red-500 transition-colors"
+                                                                        title="Excluir"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs text-dim mt-1 font-medium">
+                                                                <span className="opacity-60">{t.category}</span>
+                                                                {t.subcategory && (
+                                                                    <>
+                                                                        <span className="text-[10px] opacity-30">/</span>
+                                                                        <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setFilterSubcategory(t.subcategory!);
+                                                                            }}
+                                                                            className="flex items-center gap-1.5 bg-green-500/10 dark:bg-green-500/20 px-2 py-0.5 rounded-full border border-green-500/20 hover:border-green-500/40 transition-all group/badge"
+                                                                        >
+                                                                            {(() => {
+                                                                                let subLabel = t.subcategory;
+                                                                                let subIcon = '';
+
+                                                                                if (t.subcategory.includes(':')) {
+                                                                                    const parts = t.subcategory.split(':');
+                                                                                    subLabel = parts[0].trim();
+                                                                                    subIcon = parts[1]?.trim() || '';
+                                                                                } else {
+                                                                                    subIcon = getSubcategoryIcon(t.category, t.subcategory, t.type) || 'subdirectory_arrow_right';
+                                                                                }
+
+                                                                                return (
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="material-symbols-outlined text-[14px] text-green-600 dark:text-green-400 font-bold">{subIcon}</span>
+                                                                                        <span className="font-bold text-green-600 dark:text-green-400">{subLabel}</span>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}

@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/utils/formatters';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, Sector } from 'recharts';
-import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, useSpring, AnimatePresence, useTransform, animate } from 'framer-motion';
 import Modal from './Modal';
 import BottomSheetSelect from './BottomSheetSelect';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -24,7 +24,8 @@ const Dashboard = () => {
         predictedExpenses,
         cards,
         updateCard,
-        cardLimits
+        cardLimits,
+        forceRefresh 
     } = useTransactions();
     const { formatValue } = useSettings();
     const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -36,14 +37,34 @@ const Dashboard = () => {
     const [detailTab, setDetailTab] = useState<'credit' | 'debit'>('credit');
     const [billActionMenu, setBillActionMenu] = useState<{ isOpen: boolean; bill: any }>({ isOpen: false, bill: null });
 
+    // Sincronização proativa ao carregar a Home
+    useEffect(() => {
+        forceRefresh();
+    }, []);
+
     // Elastic Chart State
     const [pullState, setPullState] = useState({ active: false, index: -1, y: 0 });
     const [chartKey, setChartKey] = useState(0); // Key to force re-animation
     const [animatedPercentage, setAnimatedPercentage] = useState(0);
+    const fuelBarRef = React.useRef<HTMLDivElement>(null);
+    const [, setContainerWidth] = useState(0);
+
+    useEffect(() => {
+        if (fuelBarRef.current) {
+            setContainerWidth(fuelBarRef.current.offsetWidth);
+        }
+    }, [selectedFuelDetail]);
     // AJUSTE MANUAL DE ELASTICIDADE: 
     // Para aumentar a reação, aumente o multiplicador em onMouseMove (-1.5 abaixo)
     // Para suavizar o retorno, aumente o damping (25 acima)
-    const pullSpring = useSpring(0, { stiffness: 400, damping: 25 });
+    // Base Motion Values for filling animation
+    const baseGreenWidth = useMotionValue(0);
+    const baseRedWidth = useMotionValue(0);
+    const dropX = useMotionValue(0);
+    const [animationStage, setAnimationStage] = useState<'idle' | 'green' | 'gota' | 'red' | 'ready'>('idle');
+
+    // Elastic spring for the deformation effect
+    const pullSpring = useSpring(dropX, { stiffness: 400, damping: 25 });
     
     useEffect(() => {
         if (!pullState.active) {
@@ -52,6 +73,63 @@ const Dashboard = () => {
             pullSpring.set(pullState.y);
         }
     }, [pullState.active, pullState.y]); 
+
+    // Fuel Measurements (Top-level for scope and sync)
+    const fuelMeasurements = useMemo(() => {
+        if (!selectedFuelDetail) return { progressWidth: 0, exceedingWidth: 0, hasExceeded: false, amount: 0, pred: 0, excessRatio: 0 };
+        const amount = selectedFuelDetail.amount;
+        const pred = selectedFuelDetail.predictedAmount;
+        if (pred <= 0) return { progressWidth: 0, exceedingWidth: 0, hasExceeded: false, amount, pred: 0, excessRatio: 0 };
+        
+        const hasExceeded = amount > pred;
+        const scale = Math.max(amount, pred);
+        return {
+            amount,
+            pred,
+            hasExceeded,
+            progressWidth: (pred / scale) * 100,
+            exceedingWidth: hasExceeded ? ((amount - pred) / scale) * 100 : 0,
+            excessRatio: hasExceeded ? (amount - pred) / pred : 0
+        };
+    }, [selectedFuelDetail]);
+
+    useEffect(() => {
+        if (selectedFuelDetail && fuelMeasurements.progressWidth >= 0) {
+            // Reset state
+            baseGreenWidth.set(0);
+            baseRedWidth.set(0);
+            dropX.set(0);
+            setAnimationStage('green');
+
+            // Step 1: Green Bar
+            animate(baseGreenWidth, fuelMeasurements.progressWidth, { 
+                duration: 0.8, 
+                ease: "easeOut",
+                onComplete: () => {
+                    // Ensure it's exactly at end
+                    baseGreenWidth.set(fuelMeasurements.progressWidth);
+                    setAnimationStage('gota');
+                    // Step 2: Gota appears (wait for enter animation)
+                    setTimeout(() => {
+                        setAnimationStage('red');
+                        // Step 3: Red Bar
+                        animate(baseRedWidth, fuelMeasurements.exceedingWidth, { 
+                            duration: 0.3, 
+                            ease: "easeOut",
+                            onComplete: () => setAnimationStage('ready')
+                        });
+                    }, 600);
+                }
+            });
+        } else {
+            setAnimationStage('idle');
+        }
+    }, [selectedFuelDetail, fuelMeasurements.progressWidth, fuelMeasurements.exceedingWidth]);
+
+    // Fuel Bar Deform (Top-level Hooks to satisfy Rules of Hooks)
+    // Combine base width (percent) with pull displacement (pixels)
+    const fuelGreenWidth = useTransform([baseGreenWidth, pullSpring], ([bw, ps]) => `calc(${bw}% + ${ps}px)`);
+    const fuelRedWidth = useTransform([baseRedWidth, pullSpring], ([brw, ps]) => `calc(${brw}% - ${ps}px)`);
 
     const handlePayPrediction = (prediction: any) => {
         // Agora ao invés de salvar direto, emitimos um evento para o App.tsx abrir o modal preenchido
@@ -1726,94 +1804,108 @@ const Dashboard = () => {
                     {selectedFuelDetail?.predictedAmount > 0 && (
                         <div className="space-y-4">
                             {(() => {
-                                const amount = selectedFuelDetail.amount;
-                                const pred = selectedFuelDetail.predictedAmount;
-                                const hasExceeded = amount > pred;
-                                const scale = Math.max(amount, pred);
                                 
-                                const progressWidth = (pred / scale) * 100;
-                                const exceedingWidth = hasExceeded ? ((amount - pred) / scale) * 100 : 0;
-                                const excessRatio = hasExceeded ? (amount - pred) / pred : 0;
 
                                 return (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-end px-1">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-black text-dim uppercase tracking-[0.2em]">Progresso Total</span>
-                                                <span className="text-lg font-black text-content tracking-tight">{Math.round((amount / pred) * 100)}%</span>
+                                                <span className="text-lg font-black text-content tracking-tight">{Math.round((fuelMeasurements.amount / fuelMeasurements.pred) * 100)}%</span>
                                             </div>
-                                            {hasExceeded && (
+                                            {fuelMeasurements.hasExceeded && (
                                                 <motion.div 
                                                     initial={{ opacity: 0, x: 20 }}
                                                     animate={{ opacity: 1, x: 0 }}
                                                     className="flex flex-col items-end"
                                                 >
                                                     <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Excedente</span>
-                                                    <span className="text-lg font-black text-red-500 tracking-tight">+{Math.round(excessRatio * 100)}%</span>
+                                                    <span className="text-lg font-black text-red-500 tracking-tight">+{Math.round(fuelMeasurements.excessRatio * 100)}%</span>
                                                 </motion.div>
                                             )}
                                         </div>
 
-                                        <div className="h-6 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/5 p-1 relative">
-                                            {/* Efeito Splash e Gradiente de Transição (Fora do overflow-hidden para não ser cortado) */}
-                                            {hasExceeded && (
+                                        <div className="h-7 bg-white/5 dark:bg-black/20 rounded-2xl border border-white/5 p-1 relative flex items-center">
+                                            {/* Efeito Splash e Gradiente de Transição - POSIÇÃO CENTRALIZADA (y=0) */}
+                                            {fuelMeasurements.hasExceeded && animationStage !== 'idle' && animationStage !== 'green' && (
                                                 <div 
-                                                    className="absolute z-30 flex items-start justify-center h-full pointer-events-none"
-                                                    style={{ left: `${progressWidth}%`, transform: 'translateX(-50%)', top: 0 }}
+                                                    className="absolute z-30 flex items-center justify-center h-full pointer-events-none"
+                                                    style={{ 
+                                                        left: `${fuelMeasurements.progressWidth}%`, 
+                                                        transform: 'translateX(-50%)',
+                                                    }}
                                                 >
-                                                    {/* Ícone Splash Limpo e Interativo - Posicionado ACIMA da barra */}
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1, y: -12 }}
-                                                        whileTap={{ 
-                                                            scale: 1.4,
-                                                            y: -20,
-                                                            transition: { type: "spring", stiffness: 400, damping: 10 }
-                                                        }}
-                                                        animate={{ 
-                                                            y: [0, -2, 0],
-                                                            rotate: [0, 2, -2, 0]
-                                                        }}
-                                                        transition={{ 
-                                                            y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
-                                                            rotate: { repeat: Infinity, duration: 4, ease: "easeInOut" }
-                                                        }}
-                                                        className="relative z-40 p-0 flex items-center justify-center translate-y-[-3px] pointer-events-auto cursor-pointer outline-hidden"
-                                                        title="Derramar mais!"
-                                                    >
-                                                        <span 
-                                                            className="material-symbols-outlined text-4xl leading-none"
-                                                            style={{ 
-                                                                fontVariationSettings: "'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48",
-                                                                background: "linear-gradient(to right, #47f425, #ef4444)",
-                                                                WebkitBackgroundClip: "text",
-                                                                WebkitTextFillColor: "transparent",
-                                                                filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.4))"
+                                                    <div className="pointer-events-none">
+                                                        <motion.button
+                                                            drag={animationStage === 'ready' ? "x" : false}
+                                                            dragConstraints={{ left: -100, right: 100 }}
+                                                            dragElastic={0.15}
+                                                            dragMomentum={false}
+                                                            style={{ x: dropX }}
+                                                            onDragEnd={() => {
+                                                                if (animationStage === 'ready') {
+                                                                    animate(dropX, 0, { type: "spring", stiffness: 400, damping: 25 });
+                                                                }
                                                             }}
+                                                            initial={{ opacity: 0, scale: 0 }}
+                                                            animate={{ 
+                                                                opacity: 1, 
+                                                                scale: 1,
+                                                                rotate: [0, 8, -2, 4, -2, 0]
+                                                            }}
+                                                            whileHover={{ scale: 1.3 }}
+                                                            whileTap={{ 
+                                                                scale: 1.2,
+                                                                transition: { type: "spring", stiffness: 400, damping: 10 }
+                                                            }}
+                                                            transition={{ 
+                                                                opacity: { duration: 0.3 },
+                                                                scale: { duration: 0.5, type: "spring" },
+                                                                rotate: { repeat: Infinity, duration: 4, ease: "easeInOut" }
+                                                            }}
+                                                            className="relative z-40 p-0 flex items-center justify-center pointer-events-auto cursor-grab active:cursor-grabbing outline-hidden"
+                                                            title="Arraste para comprimir!"
                                                         >
-                                                            water_drop
-                                                        </span>
-                                                    </motion.button>
+                                                            <span 
+                                                                className="material-symbols-outlined text-4xl leading-none"
+                                                                style={{ 
+                                                                    fontVariationSettings: "'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48",
+                                                                    background: "linear-gradient(to right, #47f425, #ef4444)",
+                                                                    WebkitBackgroundClip: "text",
+                                                                    WebkitTextFillColor: "transparent",
+                                                                    filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.4))"
+                                                                }}
+                                                            >
+                                                                water_drop
+                                                            </span>
+                                                        </motion.button>
+                                                    </div>
                                                 </div>
                                             )}
 
-                                            <div className="flex h-full w-full rounded-xl overflow-hidden relative">
-                                                {/* Parte da Meta (Verde/Base) */}
+                                            <div 
+                                                ref={fuelBarRef}
+                                                className="flex h-full w-full rounded-xl overflow-hidden relative"
+                                            >
+                                                {/* Parte da Meta (Verde/Base) - DEFORMAÇÃO ELÁSTICA (Stretch/Compress) */}
                                                 <motion.div 
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${progressWidth}%` }}
-                                                    className={`h-full transition-all duration-1000 relative z-10 ${
-                                                        (amount / pred) * 100 >= 80 ? 'bg-primary shadow-[inset_0_0_20px_rgba(71,244,37,0.3)]' : 
-                                                        (amount / pred) * 100 >= 20 ? 'bg-zinc-500' : 
+                                                    style={{ 
+                                                        width: fuelGreenWidth
+                                                    }}
+                                                    className={`h-full relative z-10 shrink-0 ${
+                                                        (fuelMeasurements.amount / fuelMeasurements.pred) * 100 >= 80 ? 'bg-primary shadow-[inset_0_0_20px_rgba(71,244,37,0.3)]' : 
+                                                        (fuelMeasurements.amount / fuelMeasurements.pred) * 100 >= 20 ? 'bg-zinc-500' : 
                                                         'bg-red-500'
                                                     }`}
                                                 />
 
-                                                {/* Parte Excedente (Vermelha) */}
-                                                {hasExceeded && (
+                                                {/* Parte Excedente (Vermelha) - DEFORMAÇÃO ELÁSTICA INVERSA */}
+                                                {fuelMeasurements.hasExceeded && animationStage !== 'green' && animationStage !== 'gota' && (
                                                     <motion.div 
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${exceedingWidth}%` }}
-                                                        className="h-full bg-red-500 relative z-20 shadow-[inset_0_0_20px_rgba(239,68,68,0.3)]"
+                                                        style={{ 
+                                                            width: fuelRedWidth
+                                                        }}
+                                                        className="h-full bg-red-500 relative z-20 shadow-[inset_0_0_20px_rgba(239,68,68,0.3)] shrink-0"
                                                     />
                                                 )}
                                             </div>
