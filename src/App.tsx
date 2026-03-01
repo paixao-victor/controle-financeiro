@@ -12,6 +12,8 @@ import DataManagement from '@/components/DataManagement';
 import AccountsPayable from './components/AccountsPayable';
 import MyCards from './components/MyCards';
 import AddTransaction from '@/components/AddTransaction';
+import ProfilePhotoEditor from '@/components/ProfilePhotoEditor';
+import UserAvatar from '@/components/UserAvatar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Modal from '@/components/Modal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -109,11 +111,12 @@ function AppContent() {
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [profilePhotoToEdit, setProfilePhotoToEdit] = useState<string | null>(null);
   const [profileAction, setProfileAction] = useState<string | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [addTransactionInitialData, setAddTransactionInitialData] = useState<any>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [addTransactionInitialData, setAddTransactionInitialData] = useState<any>(null);
 
 
   // Splash Screen Timer
@@ -133,12 +136,12 @@ function AppContent() {
 
   const handleAppPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && user) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            updateUser({ photo: reader.result as string });
-        };
-        reader.readAsDataURL(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhotoToEdit(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
     e.target.value = ''; 
   };
@@ -274,7 +277,6 @@ function AppContent() {
 
   const handleSaveSuccess = () => {
     setIsAddTransactionOpen(false);
-    handleTabChange(TABS.EXTRATO);
   };
 
     const isSubPage = [TABS.IMPORT, TABS.CONFIG].includes(activeTab as any);
@@ -720,15 +722,9 @@ function AppContent() {
             <div className="relative">
               <button 
                 onClick={() => setIsProfilePopupOpen(!isProfilePopupOpen)}
-                className="size-10 rounded-full bg-linear-to-br from-primary/20 to-primary/10 border-2 border-primary/30 flex items-center justify-center overflow-hidden active:scale-95 transition-transform"
+                className="active:scale-95 transition-transform"
               >
-                {userPhoto ? (
-                  <img src={userPhoto} alt="User" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-primary font-black text-xs">
-                    {userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                  </span>
-                )}
+                <UserAvatar size="size-10" />
               </button>
 
               {/* Mini Card Perfil (Mobile) */}
@@ -746,15 +742,7 @@ function AppContent() {
                       className="absolute right-0 top-12 w-64 bg-surface dark:bg-zinc-900 border border-content/10 rounded-3xl shadow-2xl z-101 p-5 nm-card overflow-hidden"
                     >
                       <div className="flex flex-col items-center gap-4">
-                        <div className="size-20 rounded-full bg-linear-to-br from-primary/20 to-primary/10 border-4 border-primary/20 flex items-center justify-center overflow-hidden shadow-xl">
-                          {userPhoto ? (
-                            <img src={userPhoto} alt="User" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-primary font-black text-2xl uppercase">
-                              {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                            </span>
-                          )}
-                        </div>
+                        <UserAvatar size="size-20" className="shadow-xl" />
                         <div className="text-center">
                           <h4 className="text-lg font-black text-content uppercase tracking-tight">{userName}</h4>
                           <p className="text-[10px] text-dim font-bold tracking-tight opacity-60">{userEmail}</p>
@@ -918,15 +906,9 @@ function AppContent() {
                 </div>
                 <button 
                   onClick={() => setIsProfilePopupOpen(!isProfilePopupOpen)}
-                  className="size-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors overflow-hidden active:scale-95 bg-surface flex items-center justify-center"
+                  className="size-10 active:scale-95 transition-transform"
                 >
-                  {userPhoto ? (
-                    <img src={userPhoto} alt="User" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-primary font-black text-xs uppercase">
-                      {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </span>
-                  )}
+                  <UserAvatar size="size-10" />
                 </button>
 
                 {/* Mini Card Perfil (Desktop) */}
@@ -944,15 +926,7 @@ function AppContent() {
                         className="absolute right-0 top-14 w-72 bg-surface dark:bg-zinc-900 border border-content/10 rounded-3xl shadow-2xl z-50 p-6 nm-card overflow-hidden"
                       >
                         <div className="flex flex-col items-center gap-4">
-                          <div className="size-24 rounded-full border-4 border-primary/20 overflow-hidden shadow-xl bg-surface flex items-center justify-center">
-                            {userPhoto ? (
-                              <img src={userPhoto} alt="User" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-primary font-black text-3xl uppercase">
-                                {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                              </span>
-                            )}
-                          </div>
+                          <UserAvatar size="size-24" className="shadow-xl" />
                           <div className="text-center">
                             <h4 className="text-xl font-black text-content uppercase tracking-tight">{userName}</h4>
                             <p className="text-xs text-dim font-bold tracking-tight opacity-60">{userEmail}</p>
@@ -1043,23 +1017,19 @@ function AppContent() {
                 <span className="material-symbols-outlined text-3xl">close</span>
               </button>
               
-              <div className="aspect-square w-full max-w-[400px] rounded-full overflow-hidden border-8 border-white/10 shadow-2xl bg-surface flex items-center justify-center">
-                {userPhoto ? (
-                  <img src={userPhoto} alt="Zoom Perfil" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-primary font-black text-9xl uppercase tracking-tighter">
-                    {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </span>
-                )}
+              <div className="aspect-square w-full max-w-[400px]">
+                <UserAvatar 
+                  size="size-full" 
+                  className="shadow-2xl border-4 border-white/10"
+                />
               </div>
 
               {/* Ações Rápidas */}
               <div className="flex items-center gap-4">
                   <button 
                     onClick={() => {
-                        setProfileAction('crop_current');
                         setIsPhotoModalOpen(false);
-                        handleTabChange(TABS.PERFIL);
+                        setProfilePhotoToEdit(user?.photoRaw || userPhoto);
                     }}
                     className="flex items-center gap-2 px-6 py-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white font-bold"
                   >
@@ -1070,8 +1040,20 @@ function AppContent() {
                     onClick={() => appFileInputRef.current?.click()}
                     className="flex items-center gap-2 px-6 py-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white font-bold"
                   >
-                      <span className="material-symbols-outlined">sync_alt</span>
-                      <span>Trocar</span>
+                      <span className="material-symbols-outlined">add_a_photo</span>
+                      <span>{user?.useInitials ? "Usar Foto" : "Trocar"}</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                        updateUser({ 
+                          useInitials: true,
+                          photo: '' 
+                        });
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-500/20 rounded-full hover:bg-emerald-500/40 transition-colors text-white font-bold"
+                  >
+                      <span className="material-symbols-outlined">font_download</span>
+                      <span>Usar Iniciais</span>
                   </button>
                   <input 
                       type="file" 
@@ -1101,6 +1083,33 @@ function AppContent() {
           initialData={addTransactionInitialData}
         />
       </Modal>
+
+      {/* Editor de Foto de Perfil */}
+      <AnimatePresence>
+        {profilePhotoToEdit && (
+          <ProfilePhotoEditor 
+            initialImageSrc={profilePhotoToEdit}
+            userName={userName}
+            initialScale={user?.photoScale}
+            initialOffset={user?.photoOffset}
+            initialUseInitials={user?.useInitials}
+            onSave={(data) => {
+              updateUser({ 
+                photo: data.photo,
+                photoRaw: data.photoRaw || undefined,
+                photoBorder: data.photoBorder,
+                photoScale: data.photoScale,
+                photoOffset: data.photoOffset,
+                useInitials: data.useInitials
+              });
+              setProfilePhotoToEdit(null);
+            }}
+            onCancel={() => {
+              setProfilePhotoToEdit(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Mobile Bottom Nav - Truly Floating */}
       <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-60 w-[85%] max-w-[340px]">

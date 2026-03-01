@@ -8,6 +8,16 @@ export interface User {
     name: string;
     email: string;
     photo?: string;
+    photoRaw?: string;
+    photoBorder?: {
+        show: boolean;
+        type: string;
+        color: string;
+        width: number;
+    };
+    photoScale?: number;
+    photoOffset?: { x: number; y: number };
+    useInitials?: boolean;
     currency: 'BRL' | 'USD' | 'EUR';
     createdAt: string;
     password?: string;
