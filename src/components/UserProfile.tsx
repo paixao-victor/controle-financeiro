@@ -31,7 +31,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
     onRequestLogout
 }) => {
     const { addTransaction, calculateCurrentBalance, transactions, cards, accounts, updateAccount, predictedExpenses, predictedIncomes } = useTransactions() as any;
-    const { logout, user, login } = useAuth();
+    const { logout, user } = useAuth();
     
     // Values from auth
     const userName = user?.name || 'Usuário';
